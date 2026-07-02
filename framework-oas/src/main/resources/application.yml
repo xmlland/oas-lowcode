@@ -1,0 +1,203 @@
+spring:
+  profiles:
+    active: @active@
+  application:
+    name: gtoa
+  threads:
+    virtual:
+      enabled: true
+  mvc:
+    async:
+      request-timeout: 20000
+  servlet:
+    multipart:
+      max-file-size: 1048576000
+      max-request-size: 209715200
+  data:
+    redis:
+      lettuce:
+        pool:
+          max-active: 200
+          max-idle: 100
+          min-idle: 20
+          max-wait: 20000
+  datasource:
+    druid:
+      stat-view-servlet:
+        enabled: false
+        loginUsername: admin
+        loginPassword: ${DRUID_PASSWORD:}
+        allow:
+      web-stat-filter:
+        enabled: true
+    dynamic:
+      druid: # 全局druid参数，绝大部分值和默认保持一致。(现已支持的参数如下,不清楚含义不要乱设置)
+        # 连接池的配置信息
+        # 初始化大小，最小，最大
+        initial-size: 0
+        min-idle: 1
+        maxActive: 5
+        # 配置获取连接等待超时的时间
+        maxWait: 60000
+        # 配置间隔多久才进行一次检测，检测需要关闭的空闲连接，单位是毫秒
+        timeBetweenEvictionRunsMillis: 10000
+        # 配置一个连接在池中最小生存的时间，单位是毫秒
+        minEvictableIdleTimeMillis: 60000
+        validationQuery: SELECT 1
+        testWhileIdle: true
+        testOnBorrow: false
+        testOnReturn: false
+        # 打开PSCache，并且指定每个连接上PSCache的大小
+        poolPreparedStatements: true
+        maxPoolPreparedStatementPerConnectionSize: 20
+        # 安全加固：启用wall过滤器在数据库驱动层拦截SQL注入攻击
+        filters: stat,slf4j,wall
+        # wall过滤器配置：允许SQL注释（MyBatis日志等场景需要），block-same-name用于多表关联
+        wall:
+          commentAllow: true
+          selectAllow: true
+          alterTableAllow: true
+        socket-timeout: 30000
+        connect-timeout: 30000
+        # 通过connectProperties属性来打开mergeSql功能；慢SQL记录
+        connectionProperties:
+          druid.stat.mergeSql: true
+          druid.stat.slowSqlMillis: 5000
+  quartz:
+    #相关属性配置
+    properties:
+      org:
+        quartz:
+          scheduler:
+            instanceName: quartzScheduler
+            instanceId: AUTO
+          jobStore:
+            class: org.springframework.scheduling.quartz.LocalDataSourceJobStore
+            driverDelegateClass: org.quartz.impl.jdbcjobstore.StdJDBCDelegate
+            tablePrefix: QRTZ_
+            isClustered: true
+            clusterCheckinInterval: 10000
+            useProperties: false
+          threadPool:
+            class: org.quartz.simpl.SimpleThreadPool
+            threadCount: 10
+            threadPriority: 5
+            threadsInheritContextClassLoaderOfInitializingThread: true
+    job-store-type: jdbc
+  autoconfigure:
+    exclude: com.alibaba.druid.spring.boot.autoconfigure.DruidDataSourceAutoConfigure
+  main:
+    allow-bean-definition-overriding: true
+management:
+  endpoints:
+    web:
+      exposure:
+        # 安全加固：仅暴露health和info，移除metrics防止内部信息泄露
+        include: "health,info"
+    enabled-by-default: true
+  endpoint:
+    health:
+      show-details: when-authorized
+server:
+  servlet:
+    context-path: /jeeStudio/gtoa
+  max-http-request-header-size: 10000000
+  tomcat:
+    max-swallow-size: -1
+    max-connections: 10000
+    accept-count: 400
+    threads:
+      min-spare: 100
+      max: 300
+mybatis-plus:
+  mapper-locations:
+    - classpath*:mapper/**/*.xml
+  type-aliases-package: com.jeestudio.bpm.**.entity.**,com.jeestudio.bpm.common.view.*,com.jeestudio.bpm.modules.**.entity.**
+  global-config:
+    db-config:
+      #logic-delete-field: delflag
+      #logic-delete-value: 1
+      #logic-not-delete-value: 0
+      id-type: ASSIGN_UUID
+  configuration:
+    map-underscore-to-camel-case: true
+    call-setters-on-nulls: true
+    # 这个配置会将执行的sql打印出来，在开发或测试的时候可以用
+    log-impl: org.apache.ibatis.logging.slf4j.Slf4jImpl
+logging:
+  level:
+    root: info
+project:
+  password-expired-day: 3650
+  sm4Key: ${SM4_KEY:}
+  jwt-secret-key: ${JWT_SECRET_KEY:}
+  login-encrypt-key: ${LOGIN_ENCRYPT_KEY:}
+  file-service-token: ${FILE_SERVICE_TOKEN:}
+  cors-allowed-origins: ${CORS_ALLOWED_ORIGINS:}
+  swaggerEnable: false
+  passwordEncryptHandler : com.jeestudio.bpm.security.DefaultPasswordEncryptHandler
+  transmittalEncryption: true
+  encryptWhiteList:
+    - /createCharacter
+    - /login
+    - /sys/user/getEncryptConfig
+    - /system/sysFile/fileDownload
+    - /system/sysFile/fileDownloadZip
+    - /service/model/*/json
+    - /service/model/*/save
+    - /service/editor/stencilset
+    - /getLoginPublicKey
+adminPath: a
+allowedExtensions: .doc.docx.xls.xlsx.rar.zip.rtf.png.jpg.jpeg.txt.ppt.pptx.pdf.mp4.mp3.mov.jar.htm.html
+fileUploadFolder: /userfiles
+uploadPathDateFormat: /yyyy/MM/dd/
+allowedNums: 50
+allowPreview: false
+sec:
+  switch: true #开启安全验证
+  showValidateCode: false #校验验证码
+printerName: Brother PT-P900
+
+ldap:
+  switch: ${LDAP_SWITCH:false}
+  url: ${LDAP_URL:}
+  searchBase: ${LDAP_SEARCH_BASE:}
+  defaultBase: ${LDAP_DEFAULT_BASE:}
+
+login:
+  mode:
+    single: false
+page:
+  pageSize: 10
+
+#user sec filter switch
+oaSecLevelSwitch: false
+sysSecLogSpace: 1000
+sysSecLogSpaceWarningPercent: 80
+
+#TRANS_API_HOST = "http://api.fanyi.baidu.com/api/trans/vip/translate";
+baidu:
+  appid: ${BAIDU_APPID:}
+  securityKey: ${BAIDU_SECURITY_KEY:}
+
+password: ${SYSTEM_PASSWORD:}
+
+#snowflake settings
+dataCenterId: 1
+workId: 1
+
+cfx:
+  node: https://main.confluxrpc.com
+
+formPath: form
+
+# sys_file 表数据源配置：master(默认) 或 datahouse
+sys:
+  file:
+    datasource: master
+
+# 消息通知配置
+notification:
+  default-channels: SITE_MSG,WEBSOCKET
+  email:
+    enabled: false

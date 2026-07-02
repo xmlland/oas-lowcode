@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jeestudio.bpm.mapper.base.common.BatchDao">
+    <insert id="batchInsert">
+        INSERT INTO ${targetTable}
+        (<foreach collection="targetFieldList" item="targetField" separator=",">
+            ${targetField}
+        </foreach>)
+        SELECT
+        <foreach collection="sourceFieldMap" index="fieldName" item="sourceField" separator=",">
+            ${sourceField} AS "${fieldName}"
+        </foreach>
+        FROM ${sourceTable} AS a
+        ${joinSql}
+        ${ew.customSqlSegment}
+        ${exSql}
+    </insert>
+</mapper>

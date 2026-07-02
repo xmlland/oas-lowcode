@@ -1,0 +1,749 @@
+<?xml version="1.0" encoding="utf-8"?>
+<template>
+  <name>list</name>
+  <filePath>views/${table.module}/${table.name}</filePath>
+  <fileName>list.vue</fileName>
+  <content><![CDATA[
+<#-- 检查规则，是否表单字段多，有uModal -->
+<#assign uModal = ''>
+<#if table.exportRuleName?? && table.exportRuleName?contains('umodal')>
+  <#assign uModal = ':uModal="uModal"'>
+</#if>
+<#-- 检查规则，是否弹出小窗口，宽度800 -->
+<#assign modalWidth = ''>
+<#assign modalWidthRight = ''>
+<#if table.exportRuleName?? && table.exportRuleName?contains('smodal')>
+  <#assign modalWidth = ':modalWidth="800"'>
+  <#assign modalWidthRight = 'modalWidth: 800,'>
+</#if>
+<#if table.genTableFormProps.modal__Width != ''>
+  <#assign modalWidth = ':modalWidth="${table.genTableFormProps.modal__Width}"'>
+  <#assign modalWidthRight = 'modalWidth: ${table.genTableFormProps.modal__Width},'>
+</#if>
+<#-- 如果是子表，按钮不生成权限标志 -->
+<#assign isChildTable = "0">
+<#assign queryButton = "true">
+<#if table.parentTable?? && table.parentTable != "">
+  <#assign isChildTable = "1">
+  <#assign queryButton = "false">
+  <#list table.columnList as c>
+    <#if c.isQuery?? && c.isQuery == "1">
+      <#assign queryButton = "true">
+      <#break>
+    </#if>
+  </#list>
+</#if>
+<#if table.isProcessDefinition?? && (table.isProcessDefinition == "1" || table.isProcessDefinition == "2")>
+<#-- 工作流表单 -->
+<#-- 工作流表单：单表，主子表开始 -->
+<#if table.tableType?? && table.tableType == "0">
+<template>
+  <SingleTableView :modalFull="<#if table.genTableFormProps.modal__Full == ''>false<#else>${table.genTableFormProps.modal__Full}</#if>"
+    ref="tableview_${table.name}"
+    :class="useModernListSkin ? 'modern-list-page ${table.name}-list-view' : ''"
+    :autoHeight="useModernListSkin"
+    :queryArea="queryArea"
+    <#if table.genTableFormProps.list__modalTitleFuncStr != ''>:modalTitleFuncStr="${table.genTableFormProps.list__modalTitleFuncStr}" </#if>:act="true" <#if isChildTable == "1">:subTable="true" </#if>:queryButton="${queryButton}" v-model:actStatus="actStatus" :singleTable="singleTable" :modalComponent="modalComponent" :modalTitle="modalTitle" :buttons="buttons" :showActButtons="showActButtons" :actStatusButton="actStatusButton" formNo="${table.name}" moduleName="${table.module}" ${modalWidth} ${uModal} @loadSuccess="loadSuccess">
+    <template v-if="useModernListSkin" #queryHeader>
+      <div class="modern-list-query-heading">
+        <h2 class="modern-list-query-title">${table.comments}</h2>
+        <p class="modern-list-query-desc">维护${table.comments}数据，支持查询、批量操作和业务表单处理。</p>
+      </div>
+    </template>
+    <template #queryFields>
+<#list table.columnList as c>
+  <#if c.isQuery?? && c.isQuery == "1">
+    <#if c.showType == "input" || c.showType == "sortInput" || c.showType == "textarea" || c.showType == "serialNo">
+      <QueryField name="${c.name}" label="${c.comments}" type="input" :props="{placeholder:'${c.comments}' }"></QueryField>
+    <#elseif c.showType == "select">
+    <#if c.selectSimple?? && c.selectSimple == '0'>
+      <QueryField name="${c.name}" label="${c.comments}" type="select" :props="{placeholder:'${c.comments}',type:'table',dictType:'${c.tableName}',valueField:'${c.selectValuefield}',textField:'${c.searchKey}',tableOrderBy:'${c.selectOrder}',tableFilterData:[${c.selectDsf}]}"></QueryField>
+      <#else>
+      <QueryField name="${c.name}" label="${c.comments}" type="select" :props="{placeholder:'${c.comments}',dictType:'${c.dictType}'}"></QueryField>
+      </#if>
+    <#elseif c.showType == "checkbox">
+      <QueryField name="${c.name}" label="${c.comments}" type="select" :props="{placeholder:'${c.comments}',dictType:'${c.dictType}'}"></QueryField>
+    <#elseif c.showType == "radiobox">
+      <QueryField name="${c.name}" label="${c.comments}" type="select" :props="{placeholder:'${c.comments}',dictType:'${c.dictType}'}"></QueryField>
+    <#elseif c.showType == "dateselect" && c.queryType == "between">
+      <QueryField name="${c.name}" label="${c.comments}" type="date-range" :props="{formatPatter:'${c.dateType}'}"></QueryField>
+    <#elseif c.showType == "dateselect">
+      <QueryField name="${c.name}" label="${c.comments}" type="date" :props="{formatPatter:'${c.dateType}'}"></QueryField>
+    <#elseif c.showType == "treeselectRedio">
+      <QueryField name="${c.name}" label="${c.comments}" type="userSelect" :props="{placeholder: '${c.comments}'}"></QueryField>
+    <#elseif c.showType == "treeselectCheck">
+      <#-- 暂无 -->
+    <#elseif c.showType == "treeselect">
+      <QueryField name="${c.name}" label="${c.comments}" type="treeSelect" :props="{formNo: '${c.tableName}',placeholder: '${c.comments}'}"></QueryField>
+    <#elseif c.showType == "officeselectTree">
+      <QueryField name="${c.name}" label="${c.comments}" type="officeSelect" :props="{placeholder: '${c.comments}'}"></QueryField>
+    <#elseif c.showType == "areaselect">
+      <QueryField name="${c.name}" label="${c.comments}" type="area" :props="{placeholder:'${c.comments}' }"></QueryField>
+    <#elseif c.showType == "gridselect">
+      <#assign selectDsf='' />
+      <#if c.selectDsf??>
+        <#assign selectDsf=c.selectDsf?replace("’","'") />
+      </#if>
+      <QueryField name="${c.name}" label="${c.comments}" type="modal-select"
+                  :props="{formNo: '${c.tableName}',searchKey: '${c.searchKey}', searchLabel: '${c.searchLabel}',
+                           columns: [
+               <#list c.fieldLabels?split(",") as fieldLabel>
+                             {title: '${fieldLabel}', dataIndex:'<#list c.fieldKeys?split(",") as fieldKey><#if fieldLabel_index == fieldKey_index>${fieldKey}</#if></#list>',align: 'left'},
+               </#list>
+                           ],
+                           filterData:[${selectDsf}],
+                           placeholder: '请选择${c.comments}'}">
+      </QueryField>
+    <#elseif c.showType == "gridtabs">
+      选择${c.comments}
+    <#elseif c.showType == "selectLocation">
+      选择${c.comments}
+    <#elseif c.showType == "selectAutoSearch">
+      选择${c.comments}
+    </#if>
+  </#if>
+</#list>
+    </template>
+  </SingleTableView>
+</template>
+
+<script>
+export default {
+  name: "${table.name}_list",
+}
+</script>
+<script setup>
+import {computed, getCurrentInstance, ref, watch} from "vue";
+import form from "@/views/${table.module}/${table.name}/form";
+import {hasAnyPermission} from "@/lib/tools";
+import {useRoute} from "vue-router";
+import config from "@/config";
+let modalComponent = form
+const useModernListSkin = computed(() => {
+  return (config.theme?.adminLayout === 'modern' || config.theme?.layoutStyle === 'modern') && config.theme?.modernListSkin !== false
+})
+let queryArea = computed(() => {
+  return useModernListSkin.value ? { resetButton: true, queryAreaStyle: 'ltr' } : {}
+})
+
+<#if uModal != ''>
+let uModal = ref({
+  customBodyStyle: {
+    height: 'calc(100vh - 140px)',
+    overflow: 'auto'
+  }
+})
+</#if>
+let instance = getCurrentInstance()
+let route = useRoute()
+let actStatus = ref('path')
+let actStatusButton = ref({})
+let showActButtons = ref(true)
+
+const setQueryParam = (newValue) => {
+  // 第一个节点有工作流添加按钮
+  let isFirst = (newValue||'').indexOf('first_user_task') !== -1
+  if (isFirst) {
+    showActButtons.value = true
+  } else {
+    showActButtons.value = false
+  }
+  actStatus.value = isFirst ? 'Unsent' : 'TodoAndDoing'
+  actStatusButton.value = {
+    showUnsent: isFirst,
+    showTodoAndDoing: hasAnyPermission(['app:${table.name}:handle']),
+    showDone: hasAnyPermission(['app:${table.name}:handle']),
+    showAll: hasAnyPermission(['app:${table.name}:view']),
+  }
+  modalComponent.value=form
+}
+watch([() => route.meta.permission], ([newValue]) => {
+  setQueryParam(newValue)
+  instance.refs.tableview_${table.name}.loadData()
+})
+setQueryParam(route.meta.permission)
+
+let buttons = ref([<#if table.isBuildImport?? && table.isBuildImport == '1'>{
+  value: 'import',
+  text: '导入数据',
+  <#if isChildTable == "0">
+  permission: 'app:${table.name}:import',
+  </#if>
+}, </#if><#if table.isBuildExport?? && table.isBuildExport == '1'>{
+  value: 'export',
+  text: '导出Excel',
+  <#if isChildTable == "0">
+  permission: 'app:${table.name}:export',
+  </#if>
+}, </#if>{
+  value: 'batch-delete',
+  text: '删除',
+  <#if isChildTable == "0">
+  permission: 'app:${table.name}:remove',
+  </#if>
+}])
+
+let singleTable = ref({
+  rowButtons: [
+    {
+      value: 'viewAct',
+      text: '查看',
+    }, {
+      value: 'editAct',
+      text: '编辑',
+      visibleFilter(row) {
+        return !row.proc_ins_id && actStatus.value === 'Unsent'
+      }
+    }, {
+      value: 'editAct',
+      text: '办理',
+      visibleFilter(row) {
+        return actStatus.value === 'TodoAndDoing'
+      }
+    }
+  ],
+  columns: [
+<#list table.columnList as c>
+  <#if c.isList?? && c.isList == "1">
+  <#if c.listConfig?? && c.listConfig != ''>
+    ${c.listConfig},
+  <#else>
+  <#assign dict = "">
+  <#if c.showType == "select" || c.showType == "radiobox">
+    <#assign dict = ", dict: '${c.dictType}'">
+  <#elseif   c.showType == "checkbox">
+    <#assign dict = ", dict: '${c.dictType}', dictMultiple: true">
+  <#elseif c.showType == "switch">
+    <#assign dict = ", boolean: true">
+  </#if>
+  <#assign align = "left">
+  <#if c.showType == "dateselect" || c.showType == "select" || c.showType == "radiobox" || c.showType == "checkbox" || c.showType == "sortInput" || c.showType == "switch">
+    <#assign align = "center">
+  </#if>
+  <#assign minWidth = "minWidth: 120">
+  <#if c.showType == "textarea" || c.showType == "summernote" || (c.showType == "input" && c.maxLength?? && c.maxLength != '' && c.maxLength?number gt 254)>
+    <#assign minWidth = "minWidth: 240,ellipsis: true">
+  <#elseif c.showType == "input" && c.maxLength?? && c.maxLength != '' && c.maxLength?number gt 100>
+    <#assign minWidth = "minWidth: 120,ellipsis: true">
+  </#if>
+  <#if c.showType == "treeselectRedio"
+    || c.showType == "treeselectCheck"
+    || c.showType == "officeselectTree"
+    || c.showType == "areaselect"
+    || c.showType == "treeselect"
+    || c.showType == "gridselect"
+    || c.showType == "gridtabs"
+    || c.showType == "selectAutoSearch">
+    {title: '${c.comments}', dataIndex: ['${c.name}','name'], ${minWidth}, align: '${align}'},
+  <#elseif c.showType == "parentId">
+    {title: '${c.comments}', dataIndex: ['parent','name'], ${minWidth}, align: '${align}'},
+  <#elseif c.selectSimple?? && c.showType == "select"  && c.selectSimple == '0'>
+    {title: '${c.comments}', dataIndex: '${c.name}_name', ${minWidth}, align: '${align}'},
+  <#else>
+    {title: '${c.comments}', dataIndex: '${c.name}', ${minWidth}, align: '${align}'${dict}},
+  </#if>
+  </#if>
+  </#if>
+</#list>
+  ]
+})
+
+let modalTitle = ref('${table.comments}');
+const loadSuccess = (res) =>{
+  modalTitle.value = '${table.comments}';
+  if(!res.rows){
+    return;
+  }
+  let rows = res.rows;
+  if(rows.length>0){
+    let t = rows[0]?.act?.taskName;
+    if(t){
+      modalTitle.value = t;
+    }
+  }
+}
+</script>
+<style scoped>
+</style>
+</#if>
+<#-- 工作流表单：单表，主子表结束 -->
+<#else>
+<#-- 非工作流表单 -->
+<#-- 1、单表，主子表 -->
+<#if table.tableType?? && table.tableType == "0">
+<template>
+  <SingleTableView :modalFull="<#if table.genTableFormProps.modal__Full == ''>false<#else>${table.genTableFormProps.modal__Full}</#if>"
+    :class="useModernListSkin ? 'modern-list-page ${table.name}-list-view' : ''"
+    :autoHeight="useModernListSkin"
+    :queryArea="queryArea"
+    <#if table.genTableFormProps.list__modalTitleFuncStr != ''>:modalTitleFuncStr="${table.genTableFormProps.list__modalTitleFuncStr}" </#if><#if isChildTable == "1">:subTable="true" </#if>:queryButton="${queryButton}" :singleTable="singleTable" :modalComponent="modalComponent" modalTitle="<#if table.genTableFormProps.list__modalTitle == ''>${table.comments}<#else>${table.genTableFormProps.list__modalTitle}</#if>" :buttons="buttons" formNo="${table.name}" ${modalWidth} ${uModal}>
+    <template v-if="useModernListSkin" #queryHeader>
+      <div class="modern-list-query-heading">
+        <h2 class="modern-list-query-title">${table.comments}</h2>
+        <p class="modern-list-query-desc">维护${table.comments}数据，支持查询、批量操作和业务表单编辑。</p>
+      </div>
+    </template>
+    <template #queryFields>
+<#list table.columnList as c>
+  <#if c.isQuery?? && c.isQuery == "1">
+    <#if c.showType == "input" || c.showType == "sortInput" || c.showType == "textarea" || c.showType == "serialNo">
+      <QueryField name="${c.name}" label="${c.comments}" type="input" :props="{placeholder:'${c.comments}' }"></QueryField>
+  <#elseif c.showType == "select">
+    <#if c.selectSimple?? && c.selectSimple == '0'>
+      <QueryField name="${c.name}" label="${c.comments}" type="select" :props="{placeholder:'${c.comments}',type:'table',dictType:'${c.tableName}',valueField:'${c.selectValuefield}',textField:'${c.searchKey}',tableOrderBy:'${c.selectOrder}',tableFilterData:[${c.selectDsf}]}"></QueryField>
+    <#else>
+      <QueryField name="${c.name}" label="${c.comments}" type="select" :props="{placeholder:'${c.comments}',dictType:'${c.dictType}'}"></QueryField>
+    </#if>
+  <#elseif c.showType == "checkbox">
+      <QueryField name="${c.name}" label="${c.comments}" type="select" :props="{placeholder:'${c.comments}',dictType:'${c.dictType}'}"></QueryField>
+  <#elseif c.showType == "radiobox">
+      <QueryField name="${c.name}" label="${c.comments}" type="select" :props="{placeholder:'${c.comments}',dictType:'${c.dictType}'}"></QueryField>
+  <#elseif c.showType == "dateselect" && c.queryType == "between">
+      <QueryField name="${c.name}" label="${c.comments}" type="date-range" :props="{formatPatter:'${c.dateType}'}"></QueryField>
+  <#elseif c.showType == "dateselect">
+      <QueryField name="${c.name}" label="${c.comments}" type="date" :props="{formatPatter:'${c.dateType}'}"></QueryField>
+  <#elseif c.showType == "treeselectRedio">
+      <QueryField name="${c.name}" label="${c.comments}" type="userSelect" :props="{placeholder: '${c.comments}'}"></QueryField>
+  <#elseif c.showType == "treeselectCheck">
+    <#-- 暂无 -->
+  <#elseif c.showType == "treeselect">
+      <QueryField name="${c.name}" label="${c.comments}" type="treeSelect" :props="{formNo: '${c.tableName}',placeholder: '${c.comments}'}"></QueryField>
+  <#elseif c.showType == "officeselectTree">
+      <QueryField name="${c.name}" label="${c.comments}" type="officeSelect" :props="{placeholder: '${c.comments}'}"></QueryField>
+  <#elseif c.showType == "areaselect">
+      <QueryField name="${c.name}" label="${c.comments}" type="area" :props="{placeholder:'${c.comments}' }"></QueryField>
+  <#elseif c.showType == "gridselect">
+      <#assign selectDsf='' />
+      <#if c.selectDsf??>
+        <#assign selectDsf=c.selectDsf?replace("’","'") />
+      </#if>
+      <QueryField name="${c.name}" label="${c.comments}" type="modal-select"
+                  :props="{formNo: '${c.tableName}',searchKey: '${c.searchKey}', searchLabel: '${c.searchLabel}',
+                           columns: [
+               <#list c.fieldLabels?split(",") as fieldLabel>
+                             {title: '${fieldLabel}', dataIndex:'<#list c.fieldKeys?split(",") as fieldKey><#if fieldLabel_index == fieldKey_index>${fieldKey}</#if></#list>',align: 'left'},
+               </#list>
+                           ],
+                           filterData:[${selectDsf}],
+                           placeholder: '请选择${c.comments}'}">
+      </QueryField>
+  <#elseif c.showType == "gridtabs">
+    选择${c.comments}
+  <#elseif c.showType == "selectLocation">
+    选择${c.comments}
+  <#elseif c.showType == "selectAutoSearch">
+    选择${c.comments}
+  </#if>
+  </#if>
+</#list>
+    </template>
+  </SingleTableView>
+</template>
+
+<script>
+export default {
+  name: "${table.name}_list",
+}
+</script>
+<script setup>
+import {computed, ref} from "vue";
+import form from "@/views/${table.module}/${table.name}/form";
+import config from "@/config";
+let modalComponent = form
+const useModernListSkin = computed(() => {
+  return (config.theme?.adminLayout === 'modern' || config.theme?.layoutStyle === 'modern') && config.theme?.modernListSkin !== false
+})
+let queryArea = computed(() => {
+  return useModernListSkin.value ? { resetButton: true, queryAreaStyle: 'ltr' } : {}
+})
+
+<#if uModal != ''>
+let uModal = ref({
+  customBodyStyle: {
+    height: 'calc(100vh - 140px)',
+    overflow: 'auto'
+  }
+})
+</#if>
+let buttons = ref([{
+  value: 'add',
+  text: '添加',
+  <#if isChildTable == "0">
+  permission: 'app:${table.name}:add',
+  </#if>
+}, <#if table.isBuildImport?? && table.isBuildImport == '1'>{
+  value: 'import',
+  text: '导入数据',
+  <#if isChildTable == "0">
+  permission: 'app:${table.name}:import',
+  </#if>
+}, </#if><#if table.isBuildExport?? && table.isBuildExport == '1'>{
+  value: 'export',
+  text: '导出Excel',
+  <#if isChildTable == "0">
+  permission: 'app:${table.name}:export',
+  </#if>
+}, </#if>{
+  value: 'batch-delete',
+  text: '删除',
+  <#if isChildTable == "0">
+  permission: 'app:${table.name}:remove',
+  </#if>
+}])
+
+let singleTable = ref({
+  rowButtons: [
+    {
+      value: 'view',
+      text: '查看',
+      <#if isChildTable == "0">
+      permission: 'app:${table.name}:view',
+      </#if>
+    }, {
+      value: 'edit',
+      text: '编辑',
+      <#if isChildTable == "0">
+      permission: 'app:${table.name}:edit',
+      </#if>
+    }
+  ],
+  columns: [
+<#list table.columnList as c>
+  <#if c.isList?? && c.isList == "1">
+  <#if c.listConfig?? && c.listConfig != ''>
+    ${c.listConfig},
+  <#else>
+  <#assign dict = "">
+  <#if c.showType == "select" || c.showType == "radiobox">
+    <#assign dict = ", dict: '${c.dictType}'">
+  <#elseif   c.showType == "checkbox">
+    <#assign dict = ", dict: '${c.dictType}', dictMultiple: true">
+  <#elseif c.showType == "switch">
+    <#assign dict = ", boolean: true">
+  </#if>
+  <#assign align = "left">
+  <#if c.showType == "dateselect" || c.showType == "select" || c.showType == "radiobox" || c.showType == "checkbox" || c.showType == "sortInput" || c.showType == "switch">
+    <#assign align = "center">
+  </#if>
+  <#assign minWidth = "minWidth: 120">
+  <#if c.showType == "textarea" || c.showType == "summernote" || (c.showType == "input" && c.maxLength?? && c.maxLength != '' && c.maxLength?number gt 254)>
+    <#assign minWidth = "minWidth: 240,ellipsis: true">
+  <#elseif c.showType == "input" && c.maxLength?? && c.maxLength != '' && c.maxLength?number gt 100>
+    <#assign minWidth = "minWidth: 120,ellipsis: true">
+  </#if>
+  <#if c.showType == "treeselectRedio"
+    || c.showType == "treeselectCheck"
+    || c.showType == "officeselectTree"
+    || c.showType == "areaselect"
+    || c.showType == "treeselect"
+    || c.showType == "gridselect"
+    || c.showType == "gridtabs"
+    || c.showType == "selectAutoSearch">
+    {title: '${c.comments}', dataIndex: ['${c.name}','name'], ${minWidth}, align: '${align}'},
+  <#elseif c.showType == "parentId">
+    {title: '${c.comments}', dataIndex: ['parent','name'], ${minWidth}, align: '${align}'},
+  <#elseif c.selectSimple?? && c.showType == "select"  && c.selectSimple == '0'>
+    {title: '${c.comments}', dataIndex: '${c.name}_name', ${minWidth}, align: '${align}'},
+  <#else>
+    {title: '${c.comments}', dataIndex: '${c.name}', ${minWidth}, align: '${align}'${dict}},
+  </#if>
+  </#if>
+  </#if>
+</#list>
+  ]
+})
+
+</script>
+<style scoped>
+</style>
+<#elseif table.tableType?? && table.tableType == "3">
+<#-- 2、树表 -->
+<template>
+  <TreeTableView :singleTable="singleTable" :modalComponent="modalComponent" modalTitle="<#if table.genTableFormProps.list__modalTitle == ''>${table.comments}<#else>${table.genTableFormProps.list__modalTitle}</#if>" :buttons="buttons" :rowButtons="rowButtons" formNo="${table.name}" ${modalWidth} ${uModal}
+                 :queryArea="queryArea"
+                 :class="useModernListSkin ? 'modern-tree-table-page ${table.name}-tree-table-view' : ''">
+    <template v-if="useModernListSkin" #queryHeader>
+      <div class="modern-list-query-heading">
+        <h2 class="modern-list-query-title">${table.comments}</h2>
+        <p class="modern-list-query-desc">按层级维护${table.comments}数据，支持新增下级、编辑和删除操作。</p>
+      </div>
+    </template>
+  </TreeTableView>
+</template>
+
+<script>
+export default {
+  name: "${table.name}_list",
+}
+</script>
+<script setup>
+import {computed, ref} from "vue";
+import form from "@/views/${table.module}/${table.name}/form";
+import config from "@/config";
+let modalComponent = form
+const useModernListSkin = computed(() => {
+  return (config.theme?.adminLayout === 'modern' || config.theme?.layoutStyle === 'modern') && config.theme?.modernListSkin !== false
+})
+let queryArea = computed(() => {
+  return useModernListSkin.value ? { queryAreaStyle: 'ltr' } : {}
+})
+
+<#if uModal != ''>
+let uModal = ref({
+  customBodyStyle: {
+    height: 'calc(100vh - 140px)',
+    overflow: 'auto'
+  }
+})
+</#if>
+let buttons = ref([{
+  value: 'add',
+  text: '添加',
+  permission: 'app:${table.name}:add'
+}])
+
+let rowButtons = ref([{
+  value: 'view',
+  text: '查看',
+  permission: 'app:${table.name}:view'
+}, {
+  value: 'edit',
+  text: '编辑',
+  permission: 'app:${table.name}:edit'
+}, {
+  value: 'delete',
+  text: '删除',
+  permission: 'app:${table.name}:del',
+  color: 'error',
+}, {
+  value: 'addChild',
+  text: '添加下级',
+  permission: 'app:${table.name}:lowerlevel'
+}])
+
+let singleTable = ref({
+  autoHeight: useModernListSkin.value,
+  rowSelection:false,
+  columns: [
+<#list table.columnList as c>
+  <#if c.isList?? && c.isList == "1">
+  <#if c.listConfig?? && c.listConfig != ''>
+    ${c.listConfig},
+  <#else>
+  <#assign dict = "">
+  <#if c.showType == "select" || c.showType == "radiobox">
+    <#assign dict = ", dict: '${c.dictType}'">
+  <#elseif   c.showType == "checkbox">
+    <#assign dict = ", dict: '${c.dictType}', dictMultiple: true">
+  <#elseif c.showType == "switch">
+    <#assign dict = ", boolean: true">
+  </#if>
+  <#assign align = "left">
+  <#if c.showType == "dateselect" || c.showType == "select" || c.showType == "radiobox" || c.showType == "checkbox" || c.showType == "sortInput" || c.showType == "switch">
+    <#assign align = "center">
+  </#if>
+  <#assign minWidth = "minWidth: 120">
+  <#if c.showType == "textarea" || c.showType == "summernote" || (c.showType == "input" && c.maxLength?? && c.maxLength != '' && c.maxLength?number gt 254)>
+    <#assign minWidth = "minWidth: 240,ellipsis: true">
+  <#elseif c.showType == "input" && c.maxLength?? && c.maxLength != '' && c.maxLength?number gt 100>
+    <#assign minWidth = "minWidth: 120,ellipsis: true">
+  </#if>
+  <#if c.showType == "treeselectRedio"
+    || c.showType == "treeselectCheck"
+    || c.showType == "officeselectTree"
+    || c.showType == "areaselect"
+    || c.showType == "treeselect"
+    || c.showType == "gridselect"
+    || c.showType == "gridtabs"
+    || c.showType == "selectAutoSearch">
+    {title: '${c.comments}', dataIndex: ['${c.name}','name'], ${minWidth}, align: '${align}'},
+  <#elseif c.showType == "parentId">
+    {title: '${c.comments}', dataIndex: ['parent','name'], ${minWidth}, align: '${align}'},
+  <#elseif c.selectSimple?? && c.showType == "select"  && c.selectSimple == '0'>
+    {title: '${c.comments}', dataIndex: '${c.name}_name', ${minWidth}, align: '${align}'},
+  <#else>
+    {title: '${c.comments}', dataIndex: '${c.name}', ${minWidth}, align: '${align}'${dict}},
+  </#if>
+  </#if>
+  </#if>
+</#list>
+  ]
+})
+
+</script>
+<style scoped>
+</style>
+<#elseif table.tableType?? && table.tableType == "4">
+<#-- 3、左树右表 -->
+<template>
+  <left-tree-right-table-view :rightTableView="rightTableView" modalTitle="<#if table.genTableFormProps.list__modalTitle == ''>${table.comments}<#else>${table.genTableFormProps.list__modalTitle}</#if>" treeFormNo="${table.parentTable}"
+                              :treeWidth="useModernListSkin ? 260 : 300"
+                              :class="useModernListSkin ? 'modern-left-tree-right-page ${table.name}-ltr-view' : ''">
+    <template v-if="useModernListSkin" #queryHeader>
+      <div class="modern-list-query-heading">
+        <h2 class="modern-list-query-title">${table.comments}</h2>
+        <p class="modern-list-query-desc">按左侧分类快速筛选${table.comments}数据，支持查询、批量操作和业务表单编辑。</p>
+      </div>
+    </template>
+    <template #queryFields>
+<#list table.columnList as c>
+  <#if c.isQuery?? && c.isQuery == "1">
+    <#if c.showType == "input" || c.showType == "sortInput" || c.showType == "textarea" || c.showType == "serialNo">
+      <QueryField name="${c.name}" label="${c.comments}" type="input" :props="{placeholder:'${c.comments}' }"></QueryField>
+  <#elseif c.showType == "select">
+    <#if c.selectSimple?? && c.selectSimple == '0'>
+      <QueryField name="${c.name}" label="${c.comments}" type="select" :props="{placeholder:'${c.comments}',type:'table',dictType:'${c.tableName}',valueField:'${c.selectValuefield}',textField:'${c.searchKey}',tableOrderBy:'${c.selectOrder}',tableFilterData:[${c.selectDsf}]}"></QueryField>
+    <#else>
+      <QueryField name="${c.name}" label="${c.comments}" type="select" :props="{placeholder:'${c.comments}',dictType:'${c.dictType}'}"></QueryField>
+    </#if>
+  <#elseif c.showType == "checkbox">
+      <QueryField name="${c.name}" label="${c.comments}" type="select" :props="{placeholder:'${c.comments}',dictType:'${c.dictType}'}"></QueryField>
+  <#elseif c.showType == "radiobox">
+      <QueryField name="${c.name}" label="${c.comments}" type="select" :props="{placeholder:'${c.comments}',dictType:'${c.dictType}'}"></QueryField>
+  <#elseif c.showType == "dateselect" && c.queryType == "between">
+      <QueryField name="${c.name}" label="${c.comments}" type="date-range" :props="{formatPatter:'${c.dateType}'}"></QueryField>
+  <#elseif c.showType == "dateselect">
+      <QueryField name="${c.name}" label="${c.comments}" type="date" :props="{formatPatter:'${c.dateType}'}"></QueryField>
+  <#elseif c.showType == "treeselectRedio">
+      <QueryField name="${c.name}" label="${c.comments}" type="userSelect" :props="{placeholder: '${c.comments}'}"></QueryField>
+  <#elseif c.showType == "treeselectCheck">
+      <#-- 暂无 -->
+  <#elseif c.showType == "treeselect">
+      <QueryField name="${c.name}" label="${c.comments}" type="treeSelect" :props="{formNo: '${c.tableName}',placeholder: '${c.comments}'}"></QueryField>
+  <#elseif c.showType == "officeselectTree">
+      <QueryField name="${c.name}" label="${c.comments}" type="officeSelect" :props="{placeholder: '${c.comments}'}"></QueryField>
+  <#elseif c.showType == "areaselect">
+      <QueryField name="${c.name}" label="${c.comments}" type="area" :props="{placeholder:'${c.comments}' }"></QueryField>
+  <#elseif c.showType == "gridselect">
+      <#assign selectDsf='' />
+      <#if c.selectDsf??>
+        <#assign selectDsf=c.selectDsf?replace("’","'") />
+      </#if>
+      <QueryField name="${c.name}" label="${c.comments}" type="modal-select"
+                  :props="{formNo: '${c.tableName}',searchKey: '${c.searchKey}', searchLabel: '${c.searchLabel}',
+                           columns: [
+               <#list c.fieldLabels?split(",") as fieldLabel>
+                             {title: '${fieldLabel}', dataIndex:'<#list c.fieldKeys?split(",") as fieldKey><#if fieldLabel_index == fieldKey_index>${fieldKey}</#if></#list>',align: 'left'},
+               </#list>
+                           ],
+                           filterData:[${selectDsf}],
+                           placeholder: '请选择${c.comments}'}">
+      </QueryField>
+  <#elseif c.showType == "gridtabs">
+    选择${c.comments}
+  <#elseif c.showType == "selectLocation">
+    选择${c.comments}
+  <#elseif c.showType == "selectAutoSearch">
+    选择${c.comments}
+  </#if>
+  </#if>
+</#list>
+    </template>
+  </left-tree-right-table-view>
+</template>
+
+<script>
+export default {
+  name: "${table.name}_list",
+}
+</script>
+<script setup>
+import {computed, ref} from "vue";
+import form from "@/views/${table.module}/${table.name}/form";
+import config from "@/config";
+
+const useModernListSkin = computed(() => {
+  return (config.theme?.adminLayout === 'modern' || config.theme?.layoutStyle === 'modern') && config.theme?.modernListSkin !== false
+})
+
+let rightTableView=ref({
+  modalComponent:form,
+  formNo:'${table.name}',
+  autoHeight: useModernListSkin.value,
+  queryArea: useModernListSkin.value ? { resetButton: true, queryAreaStyle: 'ltr' } : {},
+  <#if modalWidthRight != ''>
+  ${modalWidthRight}
+  </#if>
+  <#if uModal != ''>
+  uModal: {
+    customBodyStyle: {
+      height: 'calc(100vh - 140px)',
+      overflow: 'auto'
+    }
+  }
+  </#if>
+  buttons: [{
+    value: 'add',
+    text: '添加',
+    permission: 'app:${table.name}:add'
+  }, {
+    value: 'batch-delete',
+    text: '删除',
+    permission: 'app:${table.name}:remove'
+  }],
+  singleTable:{
+    rowButtons: [
+      {
+        value: 'view',
+        text: '查看',
+        permission: 'app:${table.name}:view'
+      }, {
+        value: 'edit',
+        text: '编辑',
+        permission: 'app:${table.name}:edit'
+      }
+    ],
+    columns: [
+<#list table.columnList as c>
+  <#if c.isList?? && c.isList == "1">
+  <#if c.listConfig?? && c.listConfig != ''>
+    ${c.listConfig},
+  <#else>
+  <#assign dict = "">
+  <#if c.showType == "select" || c.showType == "radiobox">
+    <#assign dict = ", dict: '${c.dictType}'">
+  <#elseif   c.showType == "checkbox">
+    <#assign dict = ", dict: '${c.dictType}', dictMultiple: true">
+  <#elseif c.showType == "switch">
+    <#assign dict = ", boolean: true">
+  </#if>
+  <#assign align = "left">
+  <#if c.showType == "dateselect" || c.showType == "select" || c.showType == "radiobox" || c.showType == "checkbox" || c.showType == "sortInput" || c.showType == "switch">
+    <#assign align = "center">
+  </#if>
+  <#assign minWidth = "minWidth: 120">
+  <#if c.showType == "textarea" || c.showType == "summernote" || (c.showType == "input" && c.maxLength?? && c.maxLength != '' && c.maxLength?number gt 254)>
+    <#assign minWidth = "minWidth: 240,ellipsis: true">
+  <#elseif c.showType == "input" && c.maxLength?? && c.maxLength != '' && c.maxLength?number gt 100>
+    <#assign minWidth = "minWidth: 120,ellipsis: true">
+  </#if>
+  <#if c.showType == "treeselectRedio"
+    || c.showType == "treeselectCheck"
+    || c.showType == "officeselectTree"
+    || c.showType == "areaselect"
+    || c.showType == "treeselect"
+    || c.showType == "gridselect"
+    || c.showType == "gridtabs"
+    || c.showType == "selectAutoSearch">
+    {title: '${c.comments}', dataIndex: ['${c.name}','name'], ${minWidth}, align: '${align}'},
+  <#elseif c.showType == "parentId">
+    {title: '${c.comments}', dataIndex: ['parent','name'], ${minWidth}, align: '${align}'},
+  <#elseif c.selectSimple?? && c.showType == "select"  && c.selectSimple == '0'>
+    {title: '${c.comments}', dataIndex: '${c.name}_name', ${minWidth}, align: '${align}'},
+  <#else>
+    {title: '${c.comments}', dataIndex: '${c.name}', ${minWidth}, align: '${align}'${dict}},
+  </#if>
+  </#if>
+  </#if>
+</#list>
+    ]
+  }
+})
+
+</script>
+<style scoped>
+</style>
+</#if>
+</#if>
+  ]]></content>
+</template>

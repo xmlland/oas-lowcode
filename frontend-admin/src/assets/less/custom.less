@@ -1,0 +1,236 @@
+/* 滚动条优化 start */
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+::-webkit-scrollbar-track {
+  background: #ffffff;
+  border-radius: 2px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--ant-primary-color-outline);
+  border-radius: 2px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--ant-primary-color-outline);
+}
+
+::-webkit-scrollbar-corner {
+  background: #ffffff;
+}
+
+/* 滚动条优化 end */
+#app{
+  margin: 0;
+  width: 100%;
+  height: 100%;
+}
+body{
+  font-family: Microsoft YaHei, serif;
+}
+.ant-form-item, .ant-form-item-with-help {
+  margin-bottom: 12px;
+}
+
+.ant-input-textarea-show-count {
+  margin-bottom: 10px;
+}
+
+.ant-form-item-control {
+  position: relative;
+}
+
+.ant-form-item-explain {
+  position: absolute;
+  right: 30px;
+  top: -12px;
+  padding: 0 5px;
+  font-size: 12px;
+  min-height: unset !important;
+  background: #ffffff;
+  z-index: 10;
+}
+
+.help-container {
+  width: 0;
+  transition: width 1s;
+}
+
+.help-container.active {
+  width: 30%;
+}
+.feedback-container {
+  width: 0;
+  transition: width 1s;
+}
+
+.feedback-container.active {
+  width: 425px;
+}
+
+.help-container-show{
+  .ant-modal-mask{
+    transition: right 1s;
+    right: 30%;
+  }
+
+  .help-container-show-modal{
+    right: 30%;
+
+
+    .ant-modal{
+      max-width: 100%;
+    }
+  }
+}
+
+.feedback-container-show {
+  .ant-modal-mask {
+    transition: right 1s;
+    right: 425px;
+  }
+
+  .feedback-container-show-modal {
+    right: 425px;
+
+
+    .ant-modal {
+      max-width: 100%;
+    }
+  }
+}
+.tree-table-view {
+  .ant-table-cell-with-append{
+    display: table-cell !important;
+    vertical-align: inherit !important;
+  }
+  .ant-table-row-indent + .ant-table-row-expand-icon{
+    margin-top: 0;
+  }
+}
+.table-row-btn{
+  font-size: 14px;
+}
+
+.ant-tabs-top > .ant-tabs-nav, .ant-tabs-bottom > .ant-tabs-nav, .ant-tabs-top > div > .ant-tabs-nav, .ant-tabs-bottom > div > .ant-tabs-nav{
+  margin: 0 0 5px 0;
+}
+
+.import-error-modal{
+  .ant-modal{
+    .ant-modal-confirm-content{
+      >div{
+        max-height: 70vh;
+        overflow: auto;
+        >div{
+          padding: 5px;
+        }
+      }
+    }
+  }
+}
+
+.ant-modal-wrap{
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+
+  .ant-modal{
+    top: unset !important;
+  }
+}
+
+.ant-modal-close-x {
+  height: 43px;
+  line-height: 43px;
+}
+
+.ant-modal-header {
+  background: #f1f1f1;
+  padding: 10px 24px;
+
+  .ant-modal-title {
+    font-family: @main-font-name;
+    font-style: normal;
+    font-weight: 700;
+    font-size: 18px;
+    color: var(--ant-primary-color);
+  }
+}
+
+.ant-modal-content {
+  border: 1px solid var(--ant-primary-color);
+}
+
+.ant-layout-sider-trigger{
+  position: absolute;
+}
+.ant-message{
+  z-index: 20000;
+}
+
+.ant-input[disabled],
+.ant-input-affix-wrapper-disabled,
+.ant-select-disabled,
+.ant-select-disabled.ant-select:not(.ant-select-customize-input) .ant-select-selector,
+.ant-checkbox-wrapper-disabled,
+.ant-checkbox-disabled,
+.ant-checkbox-disabled .ant-checkbox-input,
+.ant-checkbox-disabled + span,
+.ant-checkbox-wrapper.ant-checkbox-wrapper-disabled,
+.ant-radio-wrapper-disabled,
+.ant-radio-disabled,
+.ant-radio-disabled .ant-radio-input,
+.ant-radio-disabled .ant-radio-inner,
+.ant-radio-disabled + span,
+.ant-picker-disabled,
+.ant-picker-input > input[disabled],
+.ant-picker.ant-picker-disabled,
+.ant-input-number-disabled .ant-input-number-input,
+.ant-input-number-disabled
+{
+  cursor: auto;
+}
+
+/*弹窗间距*/
+.ant-modal-body{
+  padding: 10px 12px;
+}
+
+.ant-input-number-group-wrapper{
+  width: 100%;
+}
+
+.ant-picker-cell{
+  color: rgba(0,0,0,0.3);
+}
+.ant-picker-cell-in-view {
+  color: var(--text-color);
+}
+.ant-modal-confirm-body > .anticon + .ant-modal-confirm-title + .ant-modal-confirm-content{
+  margin-left: 0;
+}
+.ant-select-dropdown,.ant-picker-dropdown,.ant-modal-wrap,.ant-popover,.ant-dropdown{
+  z-index: 10050;
+}
+
+.ant-notification {
+  z-index: 20050;
+}
+
+.tox-tinymce-aux{
+  z-index: 23300 !important;
+}
+
+.ant-table.ant-table-small .ant-table-title,
+.ant-table.ant-table-small .ant-table-footer,
+.ant-table.ant-table-small .ant-table-thead > tr > th,
+.ant-table.ant-table-small .ant-table-tbody > tr > td,
+.ant-table.ant-table-small tfoot > tr > th,
+.ant-table.ant-table-small tfoot > tr > td {
+  padding: 12px 8px;
+}

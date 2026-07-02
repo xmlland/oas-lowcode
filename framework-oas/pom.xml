@@ -1,0 +1,245 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>com.jeestudio.framework</groupId>
+        <artifactId>jeestudio-framework</artifactId>
+        <version>1.0-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+    <groupId>com.jeestudio.framework</groupId>
+    <artifactId>oas</artifactId>
+    <!--<packaging>war</packaging>-->
+    <version>3.0.0-SNAPSHOT</version>
+    <name>oas</name>
+    <description>JeeStudio OAS - 办公自动化系统</description>
+
+    <properties>
+        <java.version>21</java.version>
+        <spring-cloud.version>2023.0.5</spring-cloud.version>
+    </properties>
+
+    <!-- 设定主仓库，按设定顺序进行查找 -->
+    <repositories>
+        <repository>
+            <id>alimaven</id>
+            <name>aliyun maven</name>
+            <url>http://maven.aliyun.com/nexus/content/groups/public/</url>
+        </repository>
+    </repositories>
+
+    <dependencies>
+
+        <!-- framework-core - 核心框架模块 -->
+        <dependency>
+            <groupId>com.jeestudio.framework</groupId>
+            <artifactId>framework-core</artifactId>
+            <version>1.0-SNAPSHOT</version>
+        </dependency>
+        <dependency>
+            <groupId>com.jeestudio</groupId>
+            <artifactId>tools-base</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.jeestudio</groupId>
+            <artifactId>tools-dict</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.jeestudio</groupId>
+            <artifactId>tools-excel</artifactId>
+        </dependency>
+
+        <!-- framework-addon-workflow - 工作流模块 -->
+        <dependency>
+            <groupId>com.jeestudio.framework</groupId>
+            <artifactId>framework-addon-workflow</artifactId>
+            <version>1.0-SNAPSHOT</version>
+        </dependency>
+
+        <!-- framework-addon-codegen - 代码生成器模块 -->
+        <dependency>
+            <groupId>com.jeestudio.framework</groupId>
+            <artifactId>framework-addon-codegen</artifactId>
+            <version>1.0-SNAPSHOT</version>
+        </dependency>
+
+        <!-- framework-ext-eco - 生态集成模块 -->
+        <dependency>
+            <groupId>com.jeestudio.framework</groupId>
+            <artifactId>framework-ext-eco</artifactId>
+            <version>1.0-SNAPSHOT</version>
+        </dependency>
+
+        <!-- framework-ext-mini - 小程序集成模块 -->
+        <dependency>
+            <groupId>com.jeestudio.framework</groupId>
+            <artifactId>framework-ext-mini</artifactId>
+            <version>1.0-SNAPSHOT</version>
+        </dependency>
+
+        <!-- framework-addon-notification - 统一消息通知模块 -->
+        <dependency>
+            <groupId>com.jeestudio.framework</groupId>
+            <artifactId>framework-addon-notification</artifactId>
+            <version>1.0-SNAPSHOT</version>
+        </dependency>
+
+        <!-- framework-addon-storage - 统一文件存储模块 -->
+        <dependency>
+            <groupId>com.jeestudio.framework</groupId>
+            <artifactId>framework-addon-storage</artifactId>
+            <version>1.0-SNAPSHOT</version>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-api</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+    </dependencies>
+    <build>
+        <plugins>
+            <!--<plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-war-plugin</artifactId>
+                <version>2.6</version>
+                <configuration>
+                    <failOnMissingWebXml>false</failOnMissingWebXml>
+                </configuration>
+            </plugin>-->
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <source>21</source>
+                    <target>21</target>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-resources-plugin</artifactId>
+                <configuration>
+                    <nonFilteredFileExtensions>
+                        <nonFilteredFileExtension>xlsx</nonFilteredFileExtension>
+                        <nonFilteredFileExtension>xls</nonFilteredFileExtension>
+                        <nonFilteredFileExtension>zip</nonFilteredFileExtension>
+                        <nonFilteredFileExtension>cer</nonFilteredFileExtension>
+                        <nonFilteredFileExtension>pfx</nonFilteredFileExtension>
+                        <nonFilteredFileExtension>py</nonFilteredFileExtension>
+                        <nonFilteredFileExtension>keystore</nonFilteredFileExtension>
+                        <nonFilteredFileExtension>pdf</nonFilteredFileExtension>
+                    </nonFilteredFileExtensions>
+                </configuration>
+            </plugin>
+            <!-- 打包跳过测试 -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <skipTests>false</skipTests>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+    <profiles>
+        <profile>
+            <id>debug</id>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+            </activation>
+            <properties>
+                <active>debug,local</active>
+            </properties>
+        </profile>
+        <profile>
+            <id>prod</id>
+            <properties>
+                <active>prod,prod-local</active>
+            </properties>
+        </profile>
+        <profile>
+            <id>test</id>
+            <properties>
+                <active>test,test-local</active>
+            </properties>
+        </profile>
+        <profile>
+            <id>增量打包</id>
+            <build>
+                <plugins>
+                    <!--分离jar包 中 lib依赖-->
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-dependency-plugin</artifactId>
+                        <version>3.6.1</version>
+                        <executions>
+                            <execution>
+                                <id>copy</id>
+                                <phase>package</phase>
+                                <goals>
+                                    <goal>copy-dependencies</goal>
+                                </goals>
+                                <configuration>
+                                    <!--指定的依赖路径-->
+                                    <outputDirectory>
+                                        ${project.build.directory}/lib
+                                    </outputDirectory>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.springframework.boot</groupId>
+                        <artifactId>spring-boot-maven-plugin</artifactId>
+                        <configuration>
+                            <executable>true</executable>
+                            <includeSystemScope>true</includeSystemScope>
+                            <!-- 指定该jar包启动时的主类[建议] -->
+                            <mainClass>com.jeestudio.bpm.BpmApplication</mainClass>
+                            <!--必须为ZIP模式，不指定的话-Dloader.path不生效-->
+                            <layout>ZIP</layout>
+                            <!--这里是填写需要包含进去的jar，
+                                必须项目中的某些模块，会经常变动，那么就应该将其坐标写进来
+                                如果没有则nothing ，表示不打包依赖 -->
+                            <includes>
+                                <include>
+                                    <groupId>nothing</groupId>
+                                    <artifactId>nothing</artifactId>
+                                </include>
+                            </includes>
+                        </configuration>
+                        <executions>
+                            <!-- 关键的重打包配置 -->
+                            <execution>
+                                <goals>
+                                    <goal>repackage</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
+</project>

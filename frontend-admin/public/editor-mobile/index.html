@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no" />
+    <title>VForm 3 Designer Demo</title>
+    <link rel="stylesheet" href="./vant3-ui/index.css">
+    <link rel="stylesheet" href="./css/index.css">
+    <link rel="stylesheet" href="./css/fortawesome_fontawesome-free-6.4.0.all.min.css">
+    <!-- <link rel="stylesheet" href="./designer.style.css"> -->
+    <style>
+        .van-overlay{
+            z-index: 9998 !important;
+        }
+        .van-popup{
+            z-index: 9999 !important;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="app">
+        <v-form-designer ref="VFDesigner"
+			:fieldListApi="fieldListApi"
+			:bannedWidgets="bannedWidgets"
+			:designerConfig="designerConfig"
+			:dictTypeList="dictTypeList"
+            @json="handleJsonSaveCallback"
+            v-on:automatic-generation-json="automaticGenerationJsonHandler" style="height: 100vh;">
+
+        </v-form-designer>
+        <van-overlay :show="showLoading" @click="showLoading = false" z-index="9999999">
+            <div class="wrapper" @click.stop>
+                <div style="height: 100vh;display: flex;align-items: center;justify-content: center;">
+                    <van-loading size="50px" vertical>加载中...</van-loading>
+                </div>
+            </div>
+        </van-overlay>
+    </div>
+
+    <script>
+        // 内联adminCtx定义（替代env.js中的重复配置）
+        var adminCtx = {
+            hostDev: window['baseUrl'] || '/jeeStudio/gtoa/a'
+        };
+    </script>
+    <script src="./js/jquery.min.js"></script>
+    <script src="./js/vue.global.js"></script>
+    <script src="./js/element-plus.full.js"></script>
+    <script src="./vant3-ui/vant.min.js"></script>
+    <!-- <script src="./designer.umd.js"></script> -->
+    <script src="./designer.js"></script>
+    <script>
+        // 获取URL中的参数
+        const urlParams = new URLSearchParams(window.location.search);
+
+        var _ctx = adminCtx.hostDev;
+        // 读取formId参数的值
+        const formId = urlParams.get('formId');
+
+        // 输出formId参数的值
+        // console.log(formId);
+        var $token = sessionStorage.getItem('$tokenBPM') || "";
+
+        var headers = {};
+        if($token){
+            headers.token = $token;
+        }
+        const {
+            createApp
+        } = Vue;
+        const app = createApp({
+            data() {
+                return {
+                    fieldListApi: {},
+                    /* 后端字段列表API */
+                    bannedWidgets: [],
+                    /* 禁止显示的组件名称数组 */
+                    designerConfig: { // 控制页面按钮显示掩藏
+                        languageMenu: true, //是否显示语言切换菜单
+                        externalLink: true, //是否显示GitHub、文档等外部链接
+                        formTemplates: true, //是否显示表单模板
+                        eventCollapse: true, //是否显示组件事件属性折叠面板
+                        clearDesignerButton: true, //是否显示清空设计器按钮
+                        previewFormButton: true, //是否显示预览表单按钮
+                        importJsonButton: true, //是否显示导入JSON按钮
+                        exportJsonButton: true, //是否显示导出JSON器按钮
+                        saveJsonButton: false, //是否显示保存JSON器按钮
+                        exportCodeButton: true, //是否显示导出代码按钮
+                        generateSFCButton: true, //是否显示生成SFC按钮
+                        presetCssCode: '', //设计器预设CSS样式代码
+                    },
+                    formJson: {},// form表单 JSON
+                    formData: {},// form表单 数据
+                    optionData: {},
+                    dictTypeList:[],// 表单可选择 字典内容 例如 [{"dicVal":"planUser","dicLabel":"检查专家"}]
+                    showLoading: true,
+                }
+            },
+            create() {
+                // this.$refs['VFDesigner'].setFormJson(this.formJson);
+                this.$refs['VFDesigner'].clearDesigner();
+                // this.showLoading = true;
+
+            },
+            mounted() {
+                this.showLoading = true;
+                window['getFormJson'] = this.getFormJson;
+                window['setFormJson']= this.setFormJson;
+                let that = this;
+                $.ajax({
+                    type: 'POST',
+                    url: _ctx + "/gen/genTable/getDefinition",
+                    headers: {
+                        "token":$token,
+                    },
+                    contentType: "application/json", // 设置请求头的Content-Type为application/json
+                    data:JSON.stringify({
+                        "id": formId,
+                    }),
+                    success:function(data){
+                        //console.log(data);
+                        if(data.token){
+                            sessionStorage.setItem("$tokenBPM",data.token);
+                        }
+                        if(data.code == 0){
+                            // successCallback(data);
+                            if ( data.data.genTable.extJs ){
+                                that.setFormJson( data.data.genTable.extJs )
+                            }
+                        }
+                    },
+                    error:function(data){
+                        // errorCallback(data);
+                    },
+                    complete: function(jqXHR, status) {
+                        // 请求完成的回调函数，无论成功还是失败都会执行
+                        that.showLoading = false;
+                    }
+
+                });
+            },
+            methods: {
+                getFormJson: function(calback) {
+                    this.$refs['VFDesigner'].saveJsonData(function (formJson) {
+                        // console.log('获取到的数据'+JSON.stringify(formJson));
+                        if (!!calback){
+                            calback(formJson);
+                        }
+                    });
+                },
+                setFormJson: function(formJson) {
+                    this.formJson = formJson;
+                    this.$nextTick( ()=> {
+                        this.$refs['VFDesigner'].setFormJson(this.formJson);
+                    });
+                },
+                handleJsonSaveCallback(formJson){
+                    // console.log( formJson );
+                    $.ajax({
+                        type: 'POST',
+                        url: _ctx + "/gen/genTable/saveGenTableMobile",
+                        headers: {
+                            "token":$token,
+                        },
+                        contentType: "application/json", // 设置请求头的Content-Type为application/json
+                        data:JSON.stringify({
+                            "id": formId,
+                            extJs: JSON.stringify(formJson)
+                        }),
+                        success:function(data){
+                            //console.log(data);
+                            if(data.token){
+                                sessionStorage.setItem("$tokenBPM",data.token);
+                            }
+                            if(data.code == 0){
+                                // successCallback(data);
+                                vant.Toast({overlay:true,message: "保存成功", type:'success'});
+                            }else{
+                                vant.Toast({overlay:true,message: data.msg , type:'fail'});
+                            }
+                        },
+                        error:function(data){
+                            // errorCallback(data);
+                            vant.Toast({overlay:true,message: data.msg , type:'fail'});
+                        },
+                        complete: function(jqXHR, status) {
+                            // 请求完成的回调函数，无论成功还是失败都会执行
+                            that.showLoading = false;
+                        }
+                    });
+                },
+                automaticGenerationJsonHandler(callBack){
+                    this.showLoading = true;
+                    let that = this;
+                    $.ajax({
+                        type: 'POST',
+                        url: _ctx + "/gen/genTable/buildFormDefinitionForApp?formId="+formId,
+                        headers: {
+                            "token":$token,
+                        },
+                        contentType: "application/json", // 设置请求头的Content-Type为application/json
+                        data:{},
+                        success:function(data){
+                            // console.log(data);
+                            if(data.token){
+                                sessionStorage.setItem("$tokenBPM",data.token);
+                            }
+
+                            if(data.code == 0){
+                                callBack(data?.data?.data);
+                                vant.Toast({overlay:true,message: "自动生成成功", type:'success'});
+                            }else{
+                                vant.Toast({overlay:true,message: data.msg , type:'fail'});
+                            }
+                        },
+                        error:function(data){
+                            // errorCallback(data);
+                            vant.Toast({overlay:true,message: data.msg , type:'fail'});
+                        },
+                        complete: function(jqXHR, status) {
+                            // 请求完成的回调函数，无论成功还是失败都会执行
+                            that.showLoading = false;
+                        }
+                    });
+                }
+            }
+        });
+        app.use(ElementPlus);
+        app.use(vant);
+        app.use(VFormDesigner);
+        app.use(vant.Lazyload, {
+            lazyComponent: true,
+        });
+        app.mount("#app");
+    </script>
+</body>
+
+</html>

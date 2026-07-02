@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>com.jeestudio.framework</groupId>
+        <artifactId>framework-addon</artifactId>
+        <version>1.0-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+    <groupId>com.jeestudio.framework</groupId>
+    <artifactId>framework-addon-notification</artifactId>
+    <version>1.0-SNAPSHOT</version>
+    <name>framework-addon-notification</name>
+    <description>统一消息通知模块 - 站内信、WebSocket、邮件、短信</description>
+
+    <dependencies>
+        <!-- 依赖核心框架 -->
+        <dependency>
+            <groupId>com.jeestudio.framework</groupId>
+            <artifactId>framework-core</artifactId>
+            <version>1.0-SNAPSHOT</version>
+        </dependency>
+
+        <!-- Spring Boot Mail Starter（可选，用于邮件通道） -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-mail</artifactId>
+            <optional>true</optional>
+        </dependency>
+    </dependencies>
+</project>

@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<template>
+  <name>entity</name>
+  <filePath>modules/${moduleName}/entity</filePath>
+  <fileName>${ClassName}Entity.java</fileName>
+  <content><![CDATA[
+package com.jeestudio.bpm.modules.${moduleName}.entity;
+import com.baomidou.mybatisplus.annotation.FieldFill;
+import com.baomidou.mybatisplus.annotation.TableField;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
+import com.fasterxml.jackson.annotation.JsonFormat;
+import lombok.Data;
+
+import java.util.Date;
+
+@TableName("${table.name}")
+@Data
+public class ${table.javaClassName}Entity {
+<#list table.columnList as c>
+  <#if c.name == 'id'>
+    @TableId
+    protected String id;
+  <#else>
+
+    /*
+    * ${c.comments} ${c.javaField}
+    */
+    <#if c.name == 'create_date' || c.name == 'create_by' || c.name == 'owner_code' >
+    @TableField(value = "${c.name}", fill = FieldFill.INSERT)
+    <#elseif c.name == 'update_date' || c.name == 'update_by' >
+    @TableField(value = "${c.name}", fill = FieldFill.UPDATE)
+    <#else>
+    @TableField(value = "${c.name}")
+    </#if>
+    <#if c.dateType?? && c.dateType != ''>
+    @JsonFormat(pattern="${c.dateType}", timezone = "GMT+8")
+    private Date ${c.namePlus};
+    <#elseif c.name == 'sort'>
+    private Integer ${c.namePlus};
+    <#elseif c.name == 'del_flag'>
+    private String ${c.namePlus} = "0";
+    <#else>
+    private String ${c.namePlus};
+    </#if>
+  </#if>
+</#list>
+}
+  ]]></content>
+</template>

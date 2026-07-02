@@ -1,0 +1,6 @@
+body .layer-ext-yangskin {
+    visibility: hidden !important;
+}
+body .layer-ext-yangskin #act-modal{
+    visibility: visible !important;
+}

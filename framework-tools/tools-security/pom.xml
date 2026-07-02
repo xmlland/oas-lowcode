@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <parent>
+        <artifactId>framework-tools</artifactId>
+        <groupId>com.jeestudio</groupId>
+        <version>0.4.56</version>
+    </parent>
+    <modelVersion>4.0.0</modelVersion>
+
+    <artifactId>tools-security</artifactId>
+
+    <properties>
+        <maven.compiler.source>17</maven.compiler.source>
+        <maven.compiler.target>17</maven.compiler.target>
+        <bouncycastle.version>1.78</bouncycastle.version>
+        <hutool.version>5.8.37</hutool.version>
+        <tools.version>${parent.version}</tools.version>
+    </properties>
+    <dependencies>
+        <dependency>
+            <groupId>com.jeestudio</groupId>
+            <artifactId>tools-base</artifactId>
+            <version>${tools.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>cn.hutool</groupId>
+            <artifactId>hutool-crypto</artifactId>
+            <version>${hutool.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.bouncycastle</groupId>
+            <artifactId>bcprov-jdk15to18</artifactId>
+            <version>${bouncycastle.version}</version>
+        </dependency>
+    </dependencies>
+</project>

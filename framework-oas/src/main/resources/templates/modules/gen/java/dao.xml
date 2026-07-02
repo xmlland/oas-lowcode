@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<template>
+  <name>dao</name>
+  <filePath>modules/${moduleName}/dao</filePath>
+  <fileName>${ClassName}Mapper.java</fileName>
+  <content><![CDATA[
+package com.jeestudio.bpm.modules.${table.module}.dao;
+
+import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.jeestudio.bpm.modules.${table.module}.entity.${table.javaClassName}Entity;
+import org.apache.ibatis.annotations.Mapper;
+
+
+@Mapper
+public interface ${table.javaClassName}Mapper extends BaseMapper<${table.javaClassName}Entity> {
+
+}
+  ]]></content>
+</template>

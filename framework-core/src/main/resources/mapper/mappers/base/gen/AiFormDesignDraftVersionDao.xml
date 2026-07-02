@@ -1,0 +1,175 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jeestudio.bpm.mapper.base.gen.AiFormDesignDraftVersionDao">
+
+    <sql id="aiFormDesignDraftVersionColumns">
+        a.id AS "id",
+        a.create_by AS "createBy.id",
+        a.create_date AS "createDate",
+        a.del_flag AS "delFlag",
+        a.draft_id AS "draftId",
+        a.version_no AS "versionNo",
+        a.parent_version_id AS "parentVersionId",
+        a.name AS "name",
+        a.prompt AS "prompt",
+        a.clarify_answers_json AS "clarifyAnswersJson",
+        a.dsl_version AS "dslVersion",
+        a.dsl_json AS "dslJson",
+        a.schema_issues_json AS "schemaIssuesJson",
+        a.design_issues_json AS "designIssuesJson",
+        a.schema_summary_json AS "schemaSummaryJson",
+        a.design_summary_json AS "designSummaryJson",
+        a.preview_summary_json AS "previewSummaryJson",
+        a.checksum AS "checksum",
+        a.dsl_size AS "dslSize"
+    </sql>
+
+    <select id="get" resultType="com.jeestudio.bpm.common.entity.gen.AiFormDesignDraftVersion">
+        SELECT
+            <include refid="aiFormDesignDraftVersionColumns"/>
+        FROM ai_form_design_draft_version a
+        WHERE a.del_flag = '0'
+            AND a.id = #{id}
+    </select>
+
+    <select id="findList" resultType="com.jeestudio.bpm.common.entity.gen.AiFormDesignDraftVersion">
+        SELECT
+            <include refid="aiFormDesignDraftVersionColumns"/>
+        FROM ai_form_design_draft_version a
+        <where>
+            a.del_flag = #{DEL_FLAG_NORMAL}
+            <if test="draftId != null and draftId != ''">
+                AND a.draft_id = #{draftId}
+            </if>
+            <if test="checksum != null and checksum != ''">
+                AND a.checksum = #{checksum}
+            </if>
+        </where>
+        ORDER BY a.version_no ASC
+    </select>
+
+    <select id="findPageList" resultType="com.jeestudio.bpm.common.entity.gen.AiFormDesignDraftVersion">
+        SELECT
+            <include refid="aiFormDesignDraftVersionColumns"/>
+        FROM ai_form_design_draft_version a
+        <where>
+            a.del_flag = #{entity.DEL_FLAG_NORMAL}
+            <if test="entity.draftId != null and entity.draftId != ''">
+                AND a.draft_id = #{entity.draftId}
+            </if>
+            <if test="entity.checksum != null and entity.checksum != ''">
+                AND a.checksum = #{entity.checksum}
+            </if>
+        </where>
+        ORDER BY a.version_no ASC
+    </select>
+
+    <select id="findAllList" resultType="com.jeestudio.bpm.common.entity.gen.AiFormDesignDraftVersion">
+        SELECT
+            <include refid="aiFormDesignDraftVersionColumns"/>
+        FROM ai_form_design_draft_version a
+        WHERE a.del_flag = #{DEL_FLAG_NORMAL}
+        ORDER BY a.create_date DESC
+    </select>
+
+    <select id="findByDraftId" resultType="com.jeestudio.bpm.common.entity.gen.AiFormDesignDraftVersion">
+        SELECT
+            <include refid="aiFormDesignDraftVersionColumns"/>
+        FROM ai_form_design_draft_version a
+        WHERE a.del_flag = '0'
+            AND a.draft_id = #{draftId}
+        ORDER BY a.version_no ASC
+    </select>
+
+    <select id="countByDraftId" resultType="int">
+        SELECT COUNT(1)
+        FROM ai_form_design_draft_version a
+        WHERE a.del_flag = '0'
+            AND a.draft_id = #{draftId}
+    </select>
+
+    <insert id="insert">
+        INSERT INTO ai_form_design_draft_version(
+            id,
+            create_by,
+            create_date,
+            del_flag,
+            draft_id,
+            version_no,
+            parent_version_id,
+            name,
+            prompt,
+            clarify_answers_json,
+            dsl_version,
+            dsl_json,
+            schema_issues_json,
+            design_issues_json,
+            schema_summary_json,
+            design_summary_json,
+            preview_summary_json,
+            checksum,
+            dsl_size
+        ) VALUES (
+            #{id},
+            #{createBy.id},
+            #{createDate},
+            #{delFlag},
+            #{draftId},
+            #{versionNo},
+            #{parentVersionId},
+            #{name},
+            #{prompt},
+            #{clarifyAnswersJson},
+            #{dslVersion},
+            #{dslJson},
+            #{schemaIssuesJson},
+            #{designIssuesJson},
+            #{schemaSummaryJson},
+            #{designSummaryJson},
+            #{previewSummaryJson},
+            #{checksum},
+            #{dslSize}
+        )
+    </insert>
+
+    <update id="update">
+        UPDATE ai_form_design_draft_version SET
+            draft_id = #{draftId},
+            version_no = #{versionNo},
+            parent_version_id = #{parentVersionId},
+            name = #{name},
+            prompt = #{prompt},
+            clarify_answers_json = #{clarifyAnswersJson},
+            dsl_version = #{dslVersion},
+            dsl_json = #{dslJson},
+            schema_issues_json = #{schemaIssuesJson},
+            design_issues_json = #{designIssuesJson},
+            schema_summary_json = #{schemaSummaryJson},
+            design_summary_json = #{designSummaryJson},
+            preview_summary_json = #{previewSummaryJson},
+            checksum = #{checksum},
+            dsl_size = #{dslSize}
+        WHERE id = #{id}
+    </update>
+
+    <update id="delete">
+        DELETE FROM ai_form_design_draft_version
+        WHERE id = #{id}
+    </update>
+
+    <update id="deleteByLogic">
+        UPDATE ai_form_design_draft_version SET
+            del_flag = #{DEL_FLAG_DELETE}
+        WHERE id = #{id}
+    </update>
+
+    <update id="deleteByDraftId">
+        UPDATE ai_form_design_draft_version SET
+            del_flag = '1'
+        WHERE draft_id = #{draftId}
+    </update>
+
+    <select id="findUniqueByProperty" resultType="com.jeestudio.bpm.common.entity.gen.AiFormDesignDraftVersion" statementType="PREPARED">
+        SELECT * FROM ai_form_design_draft_version WHERE ${propertyName} = #{value}
+    </select>
+</mapper>

@@ -1,0 +1,50 @@
+server:
+  port: 26019
+cachePrefix: jeestudio-oas2-
+project:
+  transmittalEncryption: false
+  jwt-secret-key: ${JWT_SECRET_KEY:}
+  login-encrypt-key: ${LOGIN_ENCRYPT_KEY:}
+  excel-protect-password: ${EXCEL_PROTECT_PASSWORD:}
+spring:
+  data:
+    redis:
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:26379}
+      password: ${REDIS_PASSWORD:}
+  datasource:
+    dynamic:
+      datasource:
+        master:
+          driver-class-name: org.postgresql.Driver
+          username: ${DB_USERNAME:postgres}
+          password: ${DB_PASSWORD:}
+          url: ${DB_URL:jdbc:postgresql://localhost:5432/oas}
+  quartz:
+    jdbc:
+      platform: postgres
+      # mysql oracle  sqlServer postgres
+      # kingbase数据库用 postgres
+      initialize-schema: embedded
+      #always embedded 首次运行设置为 always 之后要改为 embedded  否则定时任务不生效
+#留痕库或schema名称，空表示在本库创建留痕表 tableName_V
+versionSchema:
+# 统一存储配置
+storage:
+  default-provider: minio
+  minio:
+    enabled: true
+    endpoint: ${MINIO_ENDPOINT:http://localhost:9000}
+    access-key: ${MINIO_ACCESS_KEY:minioadmin}
+    secret-key: ${MINIO_SECRET_KEY:minioadmin}
+    bucket: ${MINIO_BUCKET:main}
+fileRoot: /data/openjee/test2
+docTemplateRoot: /data/openjee/test2/doc
+passwordMapFile: /data/openjee/test2/passwordMap.json
+tomcatPath: /data/openjee/nginx/html
+uploadPath: /static/temporary
+export-word-url: http://localhost:26008/word-export
+logging:
+  level:
+    root: info
+    com.jeestudio.bpm.mapper.base: info

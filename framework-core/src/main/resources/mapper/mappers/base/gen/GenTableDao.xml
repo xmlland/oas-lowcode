@@ -1,0 +1,558 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jeestudio.bpm.mapper.base.gen.GenTableDao">
+
+    <sql id="genTableColumns">
+		a.id,
+		a.name,
+		a.comments,
+		a.comments_en      AS "commentsEn",
+		a.table_type       AS "tableType",
+		a.class_name       AS "className",
+		a.parent_table     AS "parentTable",
+		a.parent_table_fk  AS "parentTableFk",
+		a.create_by        AS "createBy.id",
+		a.create_date      AS "createDate",
+		a.update_by        AS "updateBy.id",
+		a.update_date      AS "updateDate",
+		a.remarks,
+		a.del_flag         AS "delFlag",
+		a.issync           AS "isSync",
+		a.ext_jsp          AS "extJsp",
+		a.ext_js           AS "extJs",
+		a.ext_java         AS "extJava",
+		a.is_custom        AS "isCustom",
+		a.is_build_add     AS "isBuildAdd",
+		a.is_build_edit    AS "isBuildEdit",
+		a.is_build_del     AS "isBuildDel",
+		a.is_build_import  AS "isBuildImport",
+		a.is_build_operate AS "isBuildOperate",
+		a.datasource,
+		a.is_version       AS "isVersion",
+		a.is_process_definition  AS "isProcessDefinition",
+		a.process_definition_category AS "processDefinitionCategory",
+		a.is_build_xform   AS "isBuildXform",
+		a.is_build_secret  AS "isBuildSecret",
+		a.is_build_content AS "isBuildContent",
+		a.form_type AS "formType",
+		a.scount AS "scount",
+		a.mcount AS "mcount",
+		a.lcount AS "lcount",
+		a.dcount AS "dcount",
+		a.is_release AS "isRelease",
+		a.is_mobile AS "isMobile",
+		a.sql_columns AS "sqlColumns",
+		a.sql_columns_friendly AS "sqlColumnsFriendly",
+		a.sql_joins AS "sqlJoins",
+		a.sql_insert AS "sqlInsert",
+		a.sql_update AS "sqlUpdate",
+		a.sql_sort AS "sqlSort",
+		a.mobile_icon AS "mobileIcon",
+		a.is_scroll AS "isScroll",
+		a.is_rowedit AS "isRowedit",
+		a.is_build_export AS "isBuildExport",
+		a.export_list AS "exportList",
+		a.export_template_path AS "exportTemplatePath",
+		a.export_rule_name AS "exportRuleName",
+		a.import_list AS "importList",
+		a.import_template_file AS "importTemplateFile",
+		a.export_template_file AS "exportTemplateFile",
+		a.blockchain_param1 AS "blockChainParam1",
+		a.blockchain_param2 AS "blockChainParam2",
+		a.blockchain_param3 AS "blockChainParam3",
+		a.blockchain_param4 AS "blockChainParam4",
+		a.blockchain_param5 AS "blockChainParam5",
+		a.blockchain_param6 AS "blockChainParam6",
+		a.module AS "module",
+		a.ext_sql01 AS "extSql01",
+		a.ext_sql02 AS "extSql02",
+		a.sql_columns_friendly_ext AS "sqlColumnsFriendlyExt",
+		a.sql_joins_ext AS "sqlJoinsExt",
+		a.form_no_ext AS "formNoExt",
+		a.form_props AS "formProps",
+		a.extend_js AS "extendJs",
+		a.table_sort AS "tableSort",
+		a.pk_column_name AS "pkColumnName",
+		(case when exists(select 1 from gen_table b where b.parent_table = a.name) then 1 else 0 end) AS "hasChildren"
+	</sql>
+
+	<sql id="genTableJoins">
+
+    </sql>
+
+    <select id="get" resultType="GenTable">
+		SELECT
+			<include refid="genTableColumns"/>
+		FROM gen_table a
+		<include refid="genTableJoins"/>
+		WHERE a.id = #{id} OR a.name = #{id}
+	</select>
+
+	<select id="findList" resultType="GenTable">
+		SELECT
+			<include refid="genTableColumns"/>
+		FROM gen_table a
+		<include refid="genTableJoins"/>
+		WHERE a.del_flag = #{DEL_FLAG_NORMAL}
+		${sqlMap.dsf}
+		<if test="formType != null and formType != ''">
+			AND a.form_type IS NOT NULL AND a.form_type = #{formType}
+		</if>
+		<if test="name != null and name != ''">
+			<bind name="nameLike" value="'%' + name + '%'" />
+			AND a.name LIKE #{nameLike}
+		</if>
+		<if test="module != null and module != ''">
+			<bind name="moduleLike" value="'%' + module + '%'" />
+			AND a.module LIKE #{moduleLike}
+		</if>
+		<if test="comments != null and comments != ''">
+			<bind name="commentsLike" value="'%' + comments + '%'" />
+			AND (a.comments LIKE #{commentsLike} OR a.comments_en LIKE #{commentsLike})
+		</if>
+		<if test="parentTable == null or parentTable == ''">
+			AND (a.parent_table IS NULL OR a.parent_table = '')
+		</if>
+		<if test="parentTable != null and parentTable != ''">
+			AND a.parent_table = #{parentTable}
+		</if>
+		<if test="datasource != null and datasource != ''">
+			AND a.datasource = #{datasource}
+		</if>
+		<if test="isVersion != null and isVersion != ''">
+			AND a.is_version = #{isVersion}
+		</if>
+		<if test="isMobile != null and isMobile != ''">
+			AND (a.is_mobile IS NOT NULL AND a.is_mobile = #{isMobile})
+		</if>
+		<if test="isCustom == null or isCustom == ''">
+			AND (a.is_custom IS NULL OR a.is_custom = '' OR a.is_custom = '0')
+		</if>
+		<if test="isCustom != null and isCustom != ''">
+			AND (a.is_custom IS NOT NULL AND a.is_custom = #{isCustom})
+		</if>
+		<choose>
+			<when test="page.orderBy != null and page.orderBy != ''">
+				ORDER BY ${page.orderBy}
+			</when>
+			<otherwise>
+				ORDER BY a.name ASC
+			</otherwise>
+		</choose>
+	</select>
+
+	<select id="findPageList" resultType="GenTable">
+		SELECT
+		<include refid="genTableColumns"/>
+		FROM gen_table a
+		<include refid="genTableJoins"/>
+		WHERE a.del_flag = #{entity.DEL_FLAG_NORMAL}
+		${sqlMap.dsf}
+		<if test="entity.formType != null and entity.formType != ''">
+			AND a.form_type IS NOT NULL AND a.form_type = #{entity.formType}
+		</if>
+		<if test="entity.name != null and entity.name != ''">
+			<bind name="nameLike" value="'%' + entity.name + '%'" />
+			AND a.name LIKE #{nameLike}
+		</if>
+		<if test="entity.module != null and entity.module != ''">
+			<bind name="moduleLike" value="'%' + entity.module + '%'" />
+			AND a.module LIKE #{moduleLike}
+		</if>
+		<if test="entity.comments != null and entity.comments != ''">
+			<bind name="commentsLike" value="'%' + entity.comments + '%'" />
+			AND (a.comments LIKE #{commentsLike} OR a.comments_en LIKE #{commentsLike})
+		</if>
+		<if test="entity.parentTable == null or entity.parentTable == ''">
+			AND (a.parent_table IS NULL OR a.parent_table = '')
+		</if>
+		<if test="entity.parentTable != null and entity.parentTable != ''">
+			AND a.parent_table = #{entity.parentTable}
+		</if>
+		<if test="entity.datasource != null and entity.datasource != ''">
+			AND a.datasource = #{entity.datasource}
+		</if>
+		<if test="entity.isVersion != null and entity.isVersion != ''">
+			AND a.is_version = #{entity.isVersion}
+		</if>
+		<if test="entity.isMobile != null and entity.isMobile != ''">
+			AND (a.is_mobile IS NOT NULL AND a.is_mobile = #{entity.isMobile})
+		</if>
+		<if test="entity.isCustom == null or entity.isCustom == ''">
+			AND (a.is_custom IS NULL OR a.is_custom = '' OR a.is_custom = '0')
+		</if>
+		<if test="entity.isCustom != null and entity.isCustom != ''">
+			AND (a.is_custom IS NOT NULL AND a.is_custom = #{entity.isCustom})
+		</if>
+		<choose>
+			<when test="sqlMap.orderBy != null and sqlMap.orderBy != ''">
+				ORDER BY ${sqlMap.orderBy}
+			</when>
+			<otherwise>
+				ORDER BY CASE WHEN a.module = 'demo' THEN 0 ELSE 1 END,a.module desc,a.table_sort ASC,a.name ASC
+			</otherwise>
+		</choose>
+	</select>
+
+	<select id="findAllList" resultType="GenTable">
+		SELECT
+			<include refid="genTableColumns"/>
+		FROM gen_table a
+		<include refid="genTableJoins"/>
+		WHERE a.del_flag = #{DEL_FLAG_NORMAL}
+			AND a.name IS NOT NULL
+		<choose>
+			<when test="page !=null and page.orderBy != null and page.orderBy != ''">
+				ORDER BY ${page.orderBy}
+			</when>
+			<otherwise>
+				ORDER BY a.name ASC
+			</otherwise>
+		</choose>
+	</select>
+
+	<insert id="insert">
+		INSERT INTO gen_table(
+			id,
+			name,
+			comments,
+			comments_en,
+			table_type,
+			class_name,
+			parent_table,
+			parent_table_fk,
+			create_by,
+			create_date,
+			update_by,
+			update_date,
+			remarks,
+			del_flag,
+			issync,
+			ext_jsp,
+			ext_js,
+			ext_java,
+			is_custom,
+			is_build_add,
+			is_build_edit,
+			is_build_del,
+			is_build_import,
+			is_build_operate,
+			datasource,
+			is_version,
+			is_process_definition,
+			process_definition_category,
+			is_build_xform,
+			is_build_secret,
+			is_build_content,
+			form_type,
+			scount,
+			mcount,
+			lcount,
+			dcount,
+			is_release,
+			is_mobile,
+			sql_columns,
+			sql_columns_friendly,
+			sql_joins,
+			sql_insert,
+			sql_update,
+			sql_sort,
+			mobile_icon,
+			is_scroll,
+			is_rowedit,
+			is_build_export,
+			export_list,
+			export_template_path,
+			export_rule_name,
+			import_list,
+			import_template_file,
+			export_template_file,
+			blockchain_param1,
+			blockchain_param2,
+			blockchain_param3,
+			blockchain_param4,
+			blockchain_param5,
+			blockchain_param6,
+			module,
+		    ext_sql01,
+		    ext_sql02,
+		    sql_columns_friendly_ext,
+		    sql_joins_ext,
+		    form_no_ext,
+			form_props,
+			extend_js,
+			table_sort,
+			pk_column_name
+		) VALUES (
+			#{id},
+			#{name},
+			#{comments},
+			#{commentsEn},
+			#{tableType},
+			#{className},
+			#{parentTable},
+			#{parentTableFk},
+			#{createBy.id},
+			#{createDate},
+			#{updateBy.id},
+			#{updateDate},
+			#{remarks},
+			#{delFlag},
+			#{isSync},
+			#{extJsp},
+			#{extJs},
+			#{extJava},
+			#{isCustom},
+			#{isBuildAdd},
+			#{isBuildEdit},
+			#{isBuildDel},
+			#{isBuildImport},
+			#{isBuildOperate},
+			#{datasource},
+			#{isVersion},
+			#{isProcessDefinition},
+			#{processDefinitionCategory},
+			#{isBuildXform},
+			#{isBuildSecret},
+			#{isBuildContent},
+			#{formType},
+			#{scount},
+			#{mcount},
+			#{lcount},
+			#{dcount},
+			#{isRelease},
+			#{isMobile},
+			#{sqlColumns},
+			#{sqlColumnsFriendly},
+			#{sqlJoins},
+			#{sqlInsert},
+			#{sqlUpdate},
+			#{sqlSort},
+			#{mobileIcon},
+			#{isScroll},
+			#{isRowedit},
+			#{isBuildExport},
+			#{exportList},
+			#{exportTemplatePath},
+			#{exportRuleName},
+			#{importList},
+			#{importTemplateFile},
+			#{exportTemplateFile},
+			#{blockChainParam1},
+			#{blockChainParam2},
+			#{blockChainParam3},
+			#{blockChainParam4},
+			#{blockChainParam5},
+			#{blockChainParam6},
+			#{module},
+			#{extSql01},
+			#{extSql02},
+			#{sqlColumnsFriendlyExt},
+			#{sqlJoinsExt},
+			#{formNoExt},
+			#{formProps},
+			#{extendJs},
+			#{tableSort},
+			#{pkColumnName}
+		)
+	</insert>
+
+	<update id="update">
+		UPDATE gen_table SET
+			name = #{name},
+			comments = #{comments},
+			comments_en = #{commentsEn},
+			table_type = #{tableType},
+			class_name = #{className},
+			parent_table = #{parentTable},
+			parent_table_fk = #{parentTableFk},
+			update_by = #{updateBy.id},
+			update_date = #{updateDate},
+			remarks = #{remarks},
+			issync = #{isSync},
+			ext_jsp = #{extJsp},
+			ext_js = #{extJs},
+			ext_java = #{extJava},
+			is_custom = #{isCustom},
+			is_build_add = #{isBuildAdd},
+			is_build_edit = #{isBuildEdit},
+			is_build_del = #{isBuildDel},
+			is_build_import = #{isBuildImport},
+			is_build_operate = #{isBuildOperate},
+			datasource = #{datasource},
+			is_version = #{isVersion},
+			is_process_definition = #{isProcessDefinition},
+			process_definition_category = #{processDefinitionCategory},
+			is_build_xform = #{isBuildXform},
+			is_build_secret = #{isBuildSecret},
+			is_build_content = #{isBuildContent},
+			form_type = #{formType},
+			scount = #{scount},
+			mcount = #{mcount},
+			lcount = #{lcount},
+			dcount = #{dcount},
+			is_release = #{isRelease},
+			is_mobile = #{isMobile},
+			sql_columns = #{sqlColumns},
+			sql_columns_friendly = #{sqlColumnsFriendly},
+			sql_joins = #{sqlJoins},
+			sql_insert = #{sqlInsert},
+			sql_update = #{sqlUpdate},
+			sql_sort = #{sqlSort},
+			mobile_icon = #{mobileIcon},
+			is_scroll = #{isScroll},
+			is_rowedit = #{isRowedit},
+			is_build_export = #{isBuildExport},
+			export_list = #{exportList},
+			export_template_path = #{exportTemplatePath},
+			export_rule_name = #{exportRuleName},
+			import_list = #{importList},
+			import_template_file = #{importTemplateFile},
+			export_template_file = #{exportTemplateFile},
+			blockchain_param1 = #{blockChainParam1},
+			blockchain_param2 = #{blockChainParam2},
+			blockchain_param3 = #{blockChainParam3},
+			blockchain_param4 = #{blockChainParam4},
+			blockchain_param5 = #{blockChainParam5},
+			blockchain_param6 = #{blockChainParam6},
+			module = #{module},
+			form_props = #{formProps},
+			extend_js = #{extendJs},
+			table_sort = #{tableSort},
+			pk_column_name = #{pkColumnName}
+		WHERE id = #{id}
+	</update>
+
+	<update id="delete">
+		DELETE FROM gen_table
+		WHERE id = #{id}
+	</update>
+
+	<update id="deleteByLogic">
+		UPDATE gen_table SET
+			del_flag = #{DEL_FLAG_DELETE}
+		WHERE id = #{id}
+	</update>
+
+	<update id="buildTable" statementType="PREPARED">
+		${sql}
+	</update>
+
+	<select id="findUniqueByProperty" resultType="GenTable" statementType="PREPARED">
+		select * FROM gen_table  where ${propertyName} = #{value}
+	</select>
+
+	<select id="getByName" resultType="GenTable">
+		SELECT
+			<include refid="genTableColumns"/>
+		FROM gen_table a
+		<include refid="genTableJoins"/>
+		WHERE a.name = #{name}
+	</select>
+
+	<update id="saveSql">
+		UPDATE gen_table SET
+			sql_columns = #{sqlColumns},
+			sql_columns_friendly = #{sqlColumnsFriendly},
+			sql_columns_friendly_ext = #{sqlColumnsFriendlyExt},
+			sql_joins = #{sqlJoins},
+			sql_joins_ext = #{sqlJoinsExt},
+			sql_insert = #{sqlInsert},
+			sql_update = #{sqlUpdate},
+			sql_sort = #{sqlSort}
+			<if test="extSql02 != null">
+			,ext_sql02 = #{extSql02}
+			</if>
+		WHERE id = #{id}
+	</update>
+
+	<select id="getChildren" resultType="GenTable">
+		SELECT
+			<include refid="genTableColumns"/>
+		FROM gen_table a
+		<include refid="genTableJoins"/>
+		WHERE a.table_type != '4' AND a.parent_table = #{name}
+	</select>
+
+	<select id="getGengTableViewById" resultType="GenTableView">
+		SELECT
+			a.id AS "id",
+			a.name AS "name",
+			a.comments AS "comments",
+			a.comments_en AS "commentsEn",
+			a.table_type AS "tableType",
+			a.parent_table AS "parentTable",
+			a.parent_table_fk AS "parentTableFk",
+			a.is_mobile AS "isMobile",
+			a.mobile_icon AS "mobileIcon",
+			a.process_definition_category AS "processDefinitionCategory",
+			a.is_scroll AS "isScroll",
+			a.is_build_secret AS "isBuildSecret",
+			a.is_rowedit AS "isRowedit",
+			a.is_build_import AS "isBuildImport",
+			a.is_build_export AS "isBuildExport",
+			a.export_list AS "exportList",
+			a.export_template_path AS "exportTemplatePath",
+			a.export_rule_name AS "exportRuleName",
+			a.import_list AS "importList",
+			a.import_template_file AS "importTemplateFile",
+			a.export_template_file AS "exportTemplateFile",
+			a.ext_jsp AS "extJsp",
+			a.ext_js AS "extJs",
+			a.ext_java AS "extJava",
+			a.is_custom AS "isCustom",
+			a.blockchain_param1 AS "blockChainParam1",
+			a.blockchain_param2 AS "blockChainParam2",
+			a.blockchain_param3 AS "blockChainParam3",
+			a.blockchain_param4 AS "blockChainParam4",
+			a.blockchain_param5 AS "blockChainParam5",
+			a.blockchain_param6 AS "blockChainParam6",
+			a.module AS "module",
+		    a.is_version AS "isVersion",
+		    a.form_props AS "formProps",
+		    a.extend_js AS "extendJs",
+		    a.table_sort AS "tableSort",
+		    a.pk_column_name AS "pkColumnName"
+		FROM gen_table a
+		WHERE a.id = #{id}
+	</select>
+
+	<select id="getGenTableViewByParentTable" resultType="GenTableChildren">
+		SELECT
+			a.id AS "id",
+			a.name AS "key",
+			a.table_sort AS "tableSort"
+		FROM gen_table a
+		WHERE a.table_type != '4' AND a.parent_table = #{name}
+	</select>
+
+	<select id="findCount" resultType="java.lang.Integer">
+		SELECT COUNT(1) FROM gen_table a WHERE a.name = #{name}
+	</select>
+
+	<update id="saveImportAndExport">
+		UPDATE gen_table SET
+		import_template_file = #{importTemplateFile},
+		import_list = #{importList},
+		export_template_file = #{exportTemplateFile},
+		export_list = #{exportList}
+		WHERE id = #{id}
+	</update>
+
+	<update id="saveImport">
+		UPDATE gen_table SET
+		import_template_file = #{importTemplateFile}
+		WHERE id = #{id}
+	</update>
+
+	<update id="saveExport">
+		UPDATE gen_table SET
+		export_template_file = #{exportTemplateFile}
+		WHERE id = #{id}
+	</update>
+    <update id="unlockSql">
+		UPDATE gen_table SET
+			export_rule_name = null
+		WHERE id = #{id}
+	</update>
+</mapper>

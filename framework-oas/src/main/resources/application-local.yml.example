@@ -1,0 +1,111 @@
+# ============================================
+# 本地开发配置示例
+# ============================================
+# 使用方法：
+# 1. 复制本文件为 application-local.yml
+# 2. 先执行 docker compose up -d 启动 PostgreSQL、Redis、MinIO、OnlyOffice
+# 3. 使用 debug/local 配置启动后端
+#
+# 说明：
+# - 本文件的默认值与 docker/docker-compose.yml、docker/.env.example 对齐。
+# - 示例密钥仅用于本地开发，生产环境必须替换为强随机值。
+# - application-local.yml 已被 .gitignore 忽略，不会提交到代码仓库。
+# ============================================
+
+server:
+  port: 6019
+
+cachePrefix: jeestudio-oas2-
+
+project:
+  # 本地开发建议关闭传输加密，方便直接调试接口。
+  transmittalEncryption: false
+  # 至少 32 字符。生产环境请替换为强随机字符串。
+  jwt-secret-key: local-dev-jwt-secret-key-please-change-32
+  # 至少 32 字符。生产环境请替换为强随机字符串。
+  login-encrypt-key: 0123456789abcdef0123456789abcdef
+  excel-protect-password: local-excel-password
+  # 文件服务内部调用 Token；本地开发可留空，生产环境建议配置强随机值。
+  file-service-token:
+  # 跨域白名单，多个地址用逗号分隔；本地前端默认端口按实际 Vite 输出调整。
+  cors-allowed-origins: http://localhost:5173,http://127.0.0.1:5173
+
+spring:
+  data:
+    redis:
+      host: 127.0.0.1
+      port: 6379
+      password: oas123456
+  datasource:
+    dynamic:
+      datasource:
+        master:
+          driver-class-name: org.postgresql.Driver
+          url: jdbc:postgresql://127.0.0.1:5432/oas
+          username: postgres
+          password: oas123456
+        # 默认复用 master，避免新用户必须额外准备数仓服务。
+        # 如果需要接入 MySQL/Doris 等外部数仓，可按实际环境替换本数据源。
+        datahouse:
+          driver-class-name: org.postgresql.Driver
+          url: jdbc:postgresql://127.0.0.1:5432/oas
+          username: postgres
+          password: oas123456
+          druid:
+            filters: slf4j
+            connectionProperties: druid.stat.mergeSql=false
+  quartz:
+    jdbc:
+      platform: postgres
+      initialize-schema: embedded
+
+# 留痕库或 schema 名称，空表示使用当前库。
+versionSchema:
+
+storage:
+  # Docker 中默认启动 MinIO，并自动创建 main 与 thumb 两个 bucket。
+  default-provider: minio
+  upload-path-format: /yyyy/MM/dd/
+  minio:
+    enabled: true
+    endpoint: http://127.0.0.1:9000
+    access-key: minioadmin
+    secret-key: minioadmin
+    bucket: main
+    thumb-bucket: thumb
+    # 前后端同机开发可留空；如前端需要通过网关访问 MinIO，可配置公开访问地址。
+    public-endpoint:
+  local:
+    enabled: true
+    root-path: ./.local/files
+    upload-folder: /userfiles
+  oss:
+    enabled: false
+  cos:
+    enabled: false
+
+# 兼容历史文件路径配置，建议本地统一落到 .local/files。
+fileRoot: ./.local/files
+docTemplateRoot: ./.local/files/doc
+passwordMapFile: ./.local/files/passwordMap.json
+tomcatPath: ./.local/static
+uploadPath: /static/temporary
+
+# Word 导出服务地址。若未启动 framework-word-export，可先保持默认；
+# 需要验证 Word 导出时，启动该服务并确认端口与路径一致。
+export-word-url: http://127.0.0.1:26008/word-export
+
+# sys_file 表读取数据源，默认 master。
+sys:
+  file:
+    datasource: master
+
+# OnlyOffice 由 Docker 暴露在 28080 端口。
+# 回调和文件下载地址通常由前端/业务参数传入，后端无需单独配置服务地址。
+
+# AI/OCR 能力通过系统设置表维护；新环境启动后可在系统设置页面配置模型地址、Key 和模型名称。
+
+logging:
+  level:
+    root: info
+    com.jeestudio.bpm.mapper.base: debug

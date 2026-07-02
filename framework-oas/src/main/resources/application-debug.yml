@@ -1,0 +1,77 @@
+# 开发环境配置
+# 注意：如需进行大文件 Excel 导入测试，请在 IDEA 运行配置的 VM options 中添加：
+#   -Xms512m -Xmx2g
+# 默认不设置时 JVM 仅占用物理内存的 25%，导入大文件时容易 OOM。
+server:
+  port: 6019
+cachePrefix: jeestudio-oas2-
+project:
+  transmittalEncryption: false
+  jwt-secret-key: ${JWT_SECRET_KEY:please-change-this-secret}
+  login-encrypt-key: ${LOGIN_ENCRYPT_KEY:please-change-this-key}
+  excel-protect-password: ${EXCEL_PROTECT_PASSWORD:}
+spring:
+  data:
+    redis:
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+  datasource:
+    dynamic:
+      datasource:
+        master:
+          #driver-class-name: com.mysql.cj.jdbc.Driver
+          #username: root2
+          #password: ${DB_PASSWORD:}
+          #url: jdbc:mysql://localhost:3306/db_zlpr_framework_debug?serverTimezone=Asia/Shanghai&characterEncoding=utf8
+          driver-class-name: org.postgresql.Driver
+          username: ${DB_USERNAME:postgres}
+          password: ${DB_PASSWORD:}
+          url: ${DB_URL:jdbc:postgresql://localhost:5432/oas}
+          #url: jdbc:postgresql://localhost:5432/oas
+        datahouse:
+          driver-class-name: com.mysql.cj.jdbc.Driver
+          username: ${DATAHOUSE_DB_USERNAME:root}
+          password: ${DATAHOUSE_DB_PASSWORD:}
+          url: ${DATAHOUSE_DB_URL:jdbc:mysql://localhost:39030/algo?useSSL=false&useServerPrepStmts=true&cachePrepStmts=true}
+          druid:
+            filters: slf4j
+            connectionProperties: druid.stat.mergeSql=false
+  quartz:
+    jdbc:
+      platform: postgres
+      # mysql oracle  sqlServer postgres
+      # kingbase数据库用 postgres
+      initialize-schema: embedded
+      #always embedded 首次运行设置为 always 之后要改为 embedded  否则定时任务不生效
+#留痕库或schema名称，空表示在本库创建留痕表 tableName_V
+versionSchema:
+# 统一存储配置（复用现有环境变量）
+storage:
+  default-provider: minio
+  upload-path-format: /yyyy/MM/dd/
+  minio:
+    enabled: true
+    endpoint: ${MINIO_ENDPOINT:http://localhost:9000}
+    access-key: ${MINIO_ACCESS_KEY:minioadmin}
+    secret-key: ${MINIO_SECRET_KEY:minioadmin}
+    bucket: ${MINIO_BUCKET:main}
+    thumb-bucket: thumb
+  local:
+    enabled: true
+    root-path: ${fileRoot:D:/test2}
+    upload-folder: /userfiles
+  oss:
+    enabled: false
+  cos:
+    enabled: false
+fileRoot: D:/test2
+docTemplateRoot: D:/test2/doc
+passwordMapFile: D:/test2/passwordMap.json
+tomcatPath: D:/nginx/html
+uploadPath: /static/temporary
+export-word-url: http://localhost:26008/word-export
+logging:
+  level:
+    root: info
+    com.jeestudio.bpm.mapper.base: debug

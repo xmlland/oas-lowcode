@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<template>
+  <name>serviceImpl</name>
+  <filePath>modules/${moduleName}/service/impl</filePath>
+  <fileName>${ClassName}ServiceImpl.java</fileName>
+  <content><![CDATA[
+package com.jeestudio.bpm.modules.${table.module}.service.impl;
+
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.jeestudio.bpm.modules.${table.module}.dao.${table.javaClassName}Mapper;
+import com.jeestudio.bpm.modules.${table.module}.entity.${table.javaClassName}Entity;
+import com.jeestudio.bpm.modules.${table.module}.service.${table.javaClassName}ServiceI;
+import com.jeestudio.bpm.service.common.ZformService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+@Service
+@Transactional
+public class ${table.javaClassName}ServiceImpl extends ServiceImpl<${table.javaClassName}Mapper, ${table.javaClassName}Entity> implements ${table.javaClassName}ServiceI {
+
+
+    @Autowired
+    ZformService zformService;
+
+}
+  ]]></content>
+</template>

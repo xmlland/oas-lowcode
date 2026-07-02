@@ -1,0 +1,47 @@
+server:
+  port: 6019
+cachePrefix: jeestudio-oas2-
+project:
+  transmittalEncryption: true
+  jwt-secret-key: ${JWT_SECRET_KEY:}
+  login-encrypt-key: ${LOGIN_ENCRYPT_KEY:}
+  excel-protect-password: ${EXCEL_PROTECT_PASSWORD:}
+spring:
+  data:
+    redis:
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+  datasource:
+    dynamic:
+      datasource:
+        master:
+          driver-class-name: org.postgresql.Driver
+          username: ${DB_USERNAME:postgres}
+          password: ${DB_PASSWORD:}
+          url: ${DB_URL:jdbc:postgresql://localhost:5432/oas}
+  quartz:
+    jdbc:
+      platform: postgres
+      initialize-schema: embedded
+versionSchema:
+# 统一存储配置
+storage:
+  default-provider: minio
+  minio:
+    enabled: true
+    endpoint: ${MINIO_ENDPOINT:http://localhost:9000}
+    access-key: ${MINIO_ACCESS_KEY:}
+    secret-key: ${MINIO_SECRET_KEY:}
+    bucket: ${MINIO_BUCKET:main}
+    public-endpoint: ${MINIO_PUBLIC_ENDPOINT:}
+fileRoot: ${FILE_ROOT:/data/files}
+docTemplateRoot: ${DOC_TEMPLATE_ROOT:/data/files/doc}
+passwordMapFile: ${PASSWORD_MAP_FILE:/data/files/passwordMap.json}
+tomcatPath: ${TOMCAT_PATH:/data/static}
+uploadPath: /static/temporary
+export-word-url: http://localhost:6008/word-export
+logging:
+  level:
+    root: info
+    com.jeestudio.bpm.mapper.base: info

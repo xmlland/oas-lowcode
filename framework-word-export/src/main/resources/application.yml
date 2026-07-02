@@ -1,0 +1,5 @@
+spring:
+  profiles:
+    active: @active@
+project:
+  file-service-token: ${FILE_SERVICE_TOKEN:}

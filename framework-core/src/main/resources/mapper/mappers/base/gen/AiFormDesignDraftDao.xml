@@ -1,0 +1,225 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jeestudio.bpm.mapper.base.gen.AiFormDesignDraftDao">
+
+    <sql id="aiFormDesignDraftColumns">
+        a.id AS "id",
+        a.create_by AS "createBy.id",
+        a.create_date AS "createDate",
+        a.update_by AS "updateBy.id",
+        a.update_date AS "updateDate",
+        a.remarks AS "remarks",
+        a.del_flag AS "delFlag",
+        a.title AS "title",
+        a.status AS "status",
+        a.target_mode AS "targetMode",
+        a.gen_table_id AS "genTableId",
+        a.form_name AS "formName",
+        a.form_title AS "formTitle",
+        a.module_name AS "moduleName",
+        a.source_type AS "sourceType",
+        a.source_content AS "sourceContent",
+        a.source_mode AS "sourceMode",
+        a.current_version_id AS "currentVersionId",
+        a.version_count AS "versionCount",
+        a.tags_json AS "tagsJson",
+        a.last_applied_at AS "lastAppliedAt"
+    </sql>
+
+    <sql id="aiFormDesignDraftWhere">
+        a.del_flag = #{DEL_FLAG_NORMAL}
+        <if test="title != null and title != ''">
+            <bind name="titleLike" value="'%' + title + '%'" />
+            AND a.title LIKE #{titleLike}
+        </if>
+        <if test="status != null and status != ''">
+            AND a.status = #{status}
+        </if>
+        <if test="targetMode != null and targetMode != ''">
+            AND a.target_mode = #{targetMode}
+        </if>
+        <if test="genTableId != null and genTableId != ''">
+            AND a.gen_table_id = #{genTableId}
+        </if>
+        <if test="formName != null and formName != ''">
+            <bind name="formNameLike" value="'%' + formName + '%'" />
+            AND a.form_name LIKE #{formNameLike}
+        </if>
+        <if test="formTitle != null and formTitle != ''">
+            <bind name="formTitleLike" value="'%' + formTitle + '%'" />
+            AND a.form_title LIKE #{formTitleLike}
+        </if>
+        <if test="moduleName != null and moduleName != ''">
+            AND a.module_name = #{moduleName}
+        </if>
+        <if test="createBy != null and createBy.id != null and createBy.id != ''">
+            AND a.create_by = #{createBy.id}
+        </if>
+    </sql>
+
+    <sql id="aiFormDesignDraftPageWhere">
+        a.del_flag = #{entity.DEL_FLAG_NORMAL}
+        <if test="entity.title != null and entity.title != ''">
+            <bind name="titleLike" value="'%' + entity.title + '%'" />
+            AND a.title LIKE #{titleLike}
+        </if>
+        <if test="entity.status != null and entity.status != ''">
+            AND a.status = #{entity.status}
+        </if>
+        <if test="entity.targetMode != null and entity.targetMode != ''">
+            AND a.target_mode = #{entity.targetMode}
+        </if>
+        <if test="entity.genTableId != null and entity.genTableId != ''">
+            AND a.gen_table_id = #{entity.genTableId}
+        </if>
+        <if test="entity.formName != null and entity.formName != ''">
+            <bind name="formNameLike" value="'%' + entity.formName + '%'" />
+            AND a.form_name LIKE #{formNameLike}
+        </if>
+        <if test="entity.formTitle != null and entity.formTitle != ''">
+            <bind name="formTitleLike" value="'%' + entity.formTitle + '%'" />
+            AND a.form_title LIKE #{formTitleLike}
+        </if>
+        <if test="entity.moduleName != null and entity.moduleName != ''">
+            AND a.module_name = #{entity.moduleName}
+        </if>
+        <if test="entity.createBy != null and entity.createBy.id != null and entity.createBy.id != ''">
+            AND a.create_by = #{entity.createBy.id}
+        </if>
+    </sql>
+
+    <select id="get" resultType="com.jeestudio.bpm.common.entity.gen.AiFormDesignDraft">
+        SELECT
+            <include refid="aiFormDesignDraftColumns"/>
+        FROM ai_form_design_draft a
+        WHERE a.del_flag = '0'
+            AND a.id = #{id}
+    </select>
+
+    <select id="findList" resultType="com.jeestudio.bpm.common.entity.gen.AiFormDesignDraft">
+        SELECT
+            <include refid="aiFormDesignDraftColumns"/>
+        FROM ai_form_design_draft a
+        <where>
+            <include refid="aiFormDesignDraftWhere"/>
+        </where>
+        <choose>
+            <when test="page != null and page.orderBy != null and page.orderBy != ''">
+                ORDER BY ${page.orderBy}
+            </when>
+            <otherwise>
+                ORDER BY a.update_date DESC, a.create_date DESC
+            </otherwise>
+        </choose>
+    </select>
+
+    <select id="findPageList" resultType="com.jeestudio.bpm.common.entity.gen.AiFormDesignDraft">
+        SELECT
+            <include refid="aiFormDesignDraftColumns"/>
+        FROM ai_form_design_draft a
+        <where>
+            <include refid="aiFormDesignDraftPageWhere"/>
+        </where>
+        <choose>
+            <when test="sqlMap.orderBy != null and sqlMap.orderBy != ''">
+                ORDER BY ${sqlMap.orderBy}
+            </when>
+            <otherwise>
+                ORDER BY a.update_date DESC, a.create_date DESC
+            </otherwise>
+        </choose>
+    </select>
+
+    <select id="findAllList" resultType="com.jeestudio.bpm.common.entity.gen.AiFormDesignDraft">
+        SELECT
+            <include refid="aiFormDesignDraftColumns"/>
+        FROM ai_form_design_draft a
+        WHERE a.del_flag = #{DEL_FLAG_NORMAL}
+        ORDER BY a.update_date DESC, a.create_date DESC
+    </select>
+
+    <insert id="insert">
+        INSERT INTO ai_form_design_draft(
+            id,
+            create_by,
+            create_date,
+            update_by,
+            update_date,
+            remarks,
+            del_flag,
+            title,
+            status,
+            target_mode,
+            gen_table_id,
+            form_name,
+            form_title,
+            module_name,
+            source_type,
+            source_content,
+            source_mode,
+            current_version_id,
+            version_count,
+            tags_json,
+            last_applied_at
+        ) VALUES (
+            #{id},
+            #{createBy.id},
+            #{createDate},
+            #{updateBy.id},
+            #{updateDate},
+            #{remarks},
+            #{delFlag},
+            #{title},
+            #{status},
+            #{targetMode},
+            #{genTableId},
+            #{formName},
+            #{formTitle},
+            #{moduleName},
+            #{sourceType},
+            #{sourceContent},
+            #{sourceMode},
+            #{currentVersionId},
+            #{versionCount},
+            #{tagsJson},
+            #{lastAppliedAt}
+        )
+    </insert>
+
+    <update id="update">
+        UPDATE ai_form_design_draft SET
+            update_by = #{updateBy.id},
+            update_date = #{updateDate},
+            remarks = #{remarks},
+            title = #{title},
+            status = #{status},
+            target_mode = #{targetMode},
+            gen_table_id = #{genTableId},
+            form_name = #{formName},
+            form_title = #{formTitle},
+            module_name = #{moduleName},
+            source_type = #{sourceType},
+            source_content = #{sourceContent},
+            source_mode = #{sourceMode},
+            current_version_id = #{currentVersionId},
+            version_count = #{versionCount},
+            tags_json = #{tagsJson},
+            last_applied_at = #{lastAppliedAt}
+        WHERE id = #{id}
+    </update>
+
+    <update id="delete">
+        DELETE FROM ai_form_design_draft
+        WHERE id = #{id}
+    </update>
+
+    <update id="deleteByLogic">
+        UPDATE ai_form_design_draft SET
+            del_flag = #{DEL_FLAG_DELETE}
+        WHERE id = #{id}
+    </update>
+
+    <select id="findUniqueByProperty" resultType="com.jeestudio.bpm.common.entity.gen.AiFormDesignDraft" statementType="PREPARED">
+        SELECT * FROM ai_form_design_draft WHERE ${propertyName} = #{value}
+    </select>
+</mapper>

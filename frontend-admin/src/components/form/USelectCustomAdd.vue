@@ -1,0 +1,472 @@
+<template>
+  <a-select v-if="formType==='select'"
+            :mode="isMultiple?'multiple':null"
+            :allowClear="allowClear"
+            :disabled="disabled"
+            :placeholder="currentPlaceholder"
+            :showSearch="showSearch"
+            optionFilterProp="title"
+            @change="selectChange"
+            :maxTagCount="maxTagCount"
+            :showArrow="!disabled"
+            :getPopupContainer="getPopupContainer"
+            :notFoundContent="notFoundContent"
+            :filter-option="filterOption"
+            @select="handleSelect"
+            v-model:value="currentValue">
+    <template v-bind:key="getData(option,valueField)" v-for="(option,optionIndex) in selectOptions">
+      <a-select-option :title="formatText(option, optionIndex)" :value="getData(option,valueField)">
+        <div v-html="formatText(option, optionIndex)"></div>
+      </a-select-option>
+    </template>
+  </a-select>
+</template>
+
+<script>
+import {
+  Select as ASelect,
+  SelectOption as ASelectOption
+} from "ant-design-vue"
+
+export default {
+  name: "USelect",
+  components: { ASelect, ASelectOption}
+}
+</script>
+<script setup>
+import {ref, watch, computed, inject, nextTick} from "vue";
+import {getDictAction} from "@/api/api";
+import {postAction} from "@/api/action";
+import {getData, isNotEmpty} from "@/lib/tools";
+
+let props = defineProps({
+  value: {
+    type: [String, Number, Boolean],
+    default: null
+  },
+  disabled: {
+    type: Boolean,
+    default: false
+  },
+  defaultValue: {
+    type: [String, Number, Array],
+    default: null
+  },
+  multiple: {
+    type: [String, Boolean],
+    default: false
+  },
+  multipleSeparator: {
+    type: String,
+    default: ','
+  },
+  type: {
+    type: String,
+    default: 'dict'// dict|table|url
+  },
+  /**
+   * select | radio | checkbox
+   */
+  formType: {
+    type: String,
+    default: 'select'
+  },
+  checkboxNowrap: {
+    type: Boolean,
+    default: true
+  },
+  checkboxSpan: {
+    type: Number,
+    default: 24
+  },
+  dictType: {
+    type: String,
+    default: null
+  },
+  tablePageSize: {
+    type: Number,
+    default: 1000
+  },
+  tableOrderBy: {
+    type: String,
+    default: ''
+  },
+  tableFilterData: {
+    type: Array,
+    default() {
+      return []
+    }
+  },
+  targetFormNo: {
+    type: String,
+    default: ''
+  },
+  targetField: {
+    type: String,
+    default: ''
+  },
+  targetFilterData: {
+    type: Array,
+    default() {
+      return []
+    }
+  },
+  optionData: {
+    type: Array,
+    default() {
+      return []
+    }
+  },
+  optionFilter:{
+    type: Function,
+    default: null
+  },
+  dataUrl: {
+    type: String,
+    default: ''
+  },
+  /**
+   * 使用url加载数据时的参数
+   */
+  postData: {
+    type: Object,
+    default: () => {
+      return {}
+    }
+  },
+  valueField: {
+    type: [String, Array],
+    default: 'member'
+  },
+  textField: {
+    type: [String, Array],
+    default: 'memberName'
+  },
+  showValue: {
+    type: Boolean,
+    default: false
+  },
+  format: {
+    type: Function,
+    default: null
+  },
+  formatFuncStr: {
+    type: String,
+    default: ''
+  },
+  showIndex: {
+    type: Boolean,
+    default: false
+  },
+  allowClear: {
+    type: Boolean,
+    default: true
+  },
+  placeholder: {
+    type: String,
+    default: ''
+  },
+  showSearch: {
+    type: Boolean,
+    default: true
+  },
+  maxTagCount:{
+    type: Number,
+    default: null
+  },
+  defaultIndex:{
+    type: Number,
+    default: null
+  },
+  loadDataByDefaultIndex:{
+    type: Boolean,
+    default: true
+  },
+  /**
+   * 是否在值改变时触发加载数据
+   */
+  triggerLoadDataOnChange:{
+    type: Boolean,
+    default: false
+  },
+  /**
+   * 是否在查询区域中
+   */
+  inQueryArea:{
+    type: Boolean,
+    default: false
+  },
+  container:{
+    type: String,
+    default: ''
+  },
+  /**
+   * 多选数量上限，到达上限后隐藏未选择的选项
+   */
+  maxSelectedCount:{
+    type: Number,
+    default: null
+  },
+  /**
+   * 当下拉列表为空时显示的内容
+   */
+  notFoundContent:{
+    type: String,
+    default: undefined
+  },
+  /**
+   * 数据更新时是否设置默认索引
+   */
+  dataUpdateSetDefIndex:{
+    type: Boolean,
+    default: false
+  }
+})
+
+let isMultiple = computed(() => {
+  if (typeof props.multiple === 'string') {
+    return props.multiple === '1' || props.multiple === 'true'
+  }
+  return props.multiple
+})
+
+let options = ref([])
+let checkboxOptions = computed(() => options.value.map((option, index) => {
+  return {label: formatText(option, index), value: getData(option,props.valueField)}
+}))
+let selectOptions = computed(()=>{
+  if(!props.maxSelectedCount||!currentValue.value){
+    return options.value;
+  }
+  let cValue = Array.from(currentValue.value);
+  if(cValue.length>=props.maxSelectedCount){
+    return options.value.filter(o => cValue.includes(o?.id));
+  }
+  return options.value;
+})
+
+let currentPlaceholder = computed(() => props.disabled ? '' : props.placeholder)
+let currentValue = ref(isMultiple.value ? [] : props.defaultValue)
+watch(() => props.value, () => {
+  if (props.value || typeof props.value === 'boolean') {
+    currentValue.value = isMultiple.value ? props.value.split(props.multipleSeparator) : props.value;
+  } else {
+    currentValue.value = isMultiple.value ? [] : null
+  }
+
+}, {immediate: true})
+let emits = defineEmits(['update:value', 'change', 'changeText','loadSuccess'])
+let filterDataLocal = computed(() => {
+  return props.tableFilterData
+})
+
+const setFormValue =  props.inQueryArea && inject('setFormValue');
+const queryFieldProps =  props.inQueryArea && inject('queryFieldProps');
+const loadQueryTableData = props.inQueryArea && inject('loadQueryTableData');
+const getQueryData = props.inQueryArea && inject('getQueryData');
+
+let defaultIndexSetFlag = false;
+
+const setDefaultIndex = ()=>{
+  if(defaultIndexSetFlag && !props.dataUpdateSetDefIndex){
+    return;
+  }
+  defaultIndexSetFlag = true;
+  if (!options.value || options.value.length === 0 || (props.defaultIndex === null) || ((typeof props.defaultIndex) === 'undefined')) {
+    let defaultVal = isMultiple.value ? [] : null;
+    if (isNotEmpty(props.defaultValue)) {
+      defaultVal = isMultiple.value ? props.defaultValue.split(props.multipleSeparator) : props.defaultValue
+    }
+    currentValue.value = (props.value || typeof (props.value) === 'boolean') ? (isMultiple.value ? props.value.split(props.multipleSeparator) : props.value) : defaultVal;
+
+    if (props.value && props.triggerLoadDataOnChange && loadQueryTableData) {
+      loadQueryTableData(getQueryData());
+    }
+    return;
+  }
+  currentValue.value = options.value[props.defaultIndex][props.valueField];
+
+  // -----------------设置默认值，需要更新值，--------------------------- by ZhangJQ
+  // 如果 组件类型为多选框，那么数据强制修正为 多选数据格式
+  if (isMultiple.value || props.formType==='checkbox') {
+    emits('update:value', currentValue.value.join(props.multipleSeparator))
+    emits('change', currentValue.value.join(props.multipleSeparator), options.value.filter(item => currentValue.value.indexOf(getData(item,props.valueField)) >= 0))
+  } else {
+    emits('update:value', currentValue.value)
+    emits('change', currentValue.value, options.value.filter(item => currentValue.value === getData(item, props.valueField)))
+  }
+  // ----------------------------------------------------------------
+
+  if(!(setFormValue&&queryFieldProps)){
+    return;
+  }
+  setFormValue(queryFieldProps.name,currentValue.value,queryFieldProps.queryType);
+  if(props.loadDataByDefaultIndex && loadQueryTableData){
+    nextTick(()=>{
+      loadQueryTableData(getQueryData());
+    })
+  }
+}
+
+const loadDictData = () => {
+  if (props.type === 'dict') {
+    if (props.dictType) {
+      getDictAction(props.dictType).then(res => {
+        if (props.optionFilter){
+          options.value = res.data.data.filter(props.optionFilter);
+        }else{
+          options.value = res.data.data;
+        }
+        emits('loadSuccess', JSON.parse(JSON.stringify(options.value)), JSON.parse(JSON.stringify(res.data.data)));
+        setDefaultIndex();
+      })
+    }
+  } else if (props.type === 'table'||props.type === 'url') {
+    let url = 'dynamic/zform/gridselectDataMap';
+    let data = {}
+    if (props.type === 'url') {
+      url = props.dataUrl;
+      data = props.postData;
+    } else {
+      data = {
+        searchKey: '',
+        searchValue: '',
+        tableName: props.dictType,
+        filterList: filterDataLocal.value,
+        targetTableName: props.targetFormNo,
+        targetField: props.targetField,
+        targetFilterList: props.targetFilterData,
+      }
+    }
+    data.pageParam = {
+      pageNo: 1,
+      pageSize: props.tablePageSize,
+      orderBy: props.tableOrderBy
+    }
+    postAction(url, data).then(res => {
+      if (props.optionFilter){
+        options.value = res.rows.filter(props.optionFilter);
+      }else{
+        options.value = res.rows;
+      }
+      emits('loadSuccess', JSON.parse(JSON.stringify(options.value)), JSON.parse(JSON.stringify(res.rows)));
+      setDefaultIndex();
+    })
+  }
+
+}
+const getOptions =()=>{
+  return options.value;
+}
+
+watch(() => props.dictType, () => {
+  if (props.dictType) {
+    loadDictData();
+  }
+}, {immediate: true})
+watch(() => props.dataUrl, () => {
+  if (props.dataUrl) {
+    loadDictData();
+  }
+}, {immediate: true})
+watch(() => props.postData, (value, oldValue) => {
+  if (props.dataUrl && (JSON.stringify(value) !== JSON.stringify(oldValue))) {
+    loadDictData();
+  }
+}, {deep: true})
+watch(() => props.optionData, (value, oldValue) => {
+  if (props.optionData && (value.length > 0 || (oldValue && oldValue.length > 0))) {
+    defaultIndexSetFlag = false;
+    options.value = props.optionData;
+    setDefaultIndex();
+  }
+}, {immediate: true, deep: true})
+watch(() => props.targetFormNo, () => {
+  loadDictData();
+}, {immediate: true})
+watch(() => props.tableFilterData, (o,n) => {
+  if (JSON.stringify(o) !== JSON.stringify(n)) {
+    loadDictData();
+  }
+}, {})
+
+const selectChange = () => {
+  if (typeof currentValue.value === "undefined"){
+    currentValue.value = ''
+  }
+  // 如果 组件类型为多选框，那么数据强制修正为 多选数据格式
+  if (isMultiple.value || props.formType==='checkbox') {
+    emits('update:value', currentValue.value.join(props.multipleSeparator))
+    emits('change', currentValue.value.join(props.multipleSeparator), options.value.filter(item => currentValue.value.indexOf(getData(item,props.valueField)) >= 0))
+  } else {
+    emits('update:value', currentValue.value)
+    emits('change', currentValue.value, options.value.filter(item => currentValue.value === getData(item, props.valueField)))
+  }
+  if (props.triggerLoadDataOnChange){
+    loadQueryTableData(getQueryData());
+  }
+  let checkboxText = ref([])
+  if (checkboxText && Array.isArray(currentValue.value)) {
+    currentValue.value.forEach((item, index) => {
+      checkboxOptions.value.forEach((checkboxItem) => {
+        if (checkboxItem.value === item) {
+          checkboxText.value.push(checkboxItem.label)
+        }
+      })
+    })
+    emits('changeText', checkboxText.value.join(props.multipleSeparator))
+  }
+}
+
+const formatText = (option, index) => {
+  if (props.format) {
+    return props.format(option, index)
+  }
+  if (props.formatFuncStr){
+    try {
+      return new Function('option', 'index', props.formatFuncStr)(option, index)
+    }catch (e) {
+      console.error(e)
+    }
+    return 'error'
+  }
+  if (props.showValue) {
+    return getData(option,props.valueField) + ' | ' + getData(option, props.textField)
+  }
+  if (props.showIndex) {
+    return `${index + 1}、${getData(option, props.textField)}`
+  }
+  return getData(option, props.textField)
+}
+
+const getPopupContainer = () => {
+  return props.container === ''?document.body: document.getElementById(props.container)
+}
+const handleSelect = (value) => {
+  currentValue.value = value;
+};
+
+const filterOption = (input, option) => {
+  // 判断输入的内容是否与列表中的值一致
+  // 判断输入内容是否包含在列表的value中
+  const inputLower = input.toLowerCase();
+  const optionValueLower = option.title.toLowerCase();
+  if (optionValueLower.indexOf(inputLower) >= 0) {
+    return true; // 让输入框显示匹配项
+  } else {
+    // 如果不一致，继续进行正常的过滤
+    currentValue.value = input; // 手动输入时赋值为输入的内容
+    selectChange();
+    return option.value.toLowerCase().indexOf(input.toLowerCase()) >= 0;
+  }
+};
+
+defineExpose({
+  loadDictData,getOptions
+})
+</script>
+<style scoped>
+.ant-checkbox-group {
+  width: 100%;
+}
+</style>

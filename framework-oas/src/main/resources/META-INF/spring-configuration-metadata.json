@@ -1,0 +1,26 @@
+{
+  "groups": [
+    {
+      "name": "project",
+      "type": "com.jeestudio.bpm.config.ProjectProperties",
+      "sourceType": "com.jeestudio.bpm.config.ProjectProperties"
+    }
+  ],
+  "properties": [
+    {
+      "name": "project.password-expired-day",
+      "type": "java.lang.Integer",
+      "description": "密码过期天数 默认一百年",
+      "sourceType": "com.jeestudio.bpm.config.ProjectProperties",
+      "defaultValue": 36500
+    },
+    {
+      "name": "project.sm4-key",
+      "type": "java.lang.String",
+      "description": "sm4加密key 用于数据存储加密  使用SM4Util.generateKey()可以生成",
+      "sourceType": "com.jeestudio.bpm.config.ProjectProperties",
+      "defaultValue": ""
+    }
+  ],
+  "hints": []
+}

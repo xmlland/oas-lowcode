@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jeestudio.bpm.modules.admin.dao.SysSubSystemMapper">
+
+
+    <select id="listSubSystemCodesByUserId" resultType="java.lang.String">
+        select distinct s.code,s.sort
+        from sys_subsystem s
+                 inner join sys_subsystem_menu r on s.id = r.subsystem_id
+                 inner join sys_role_menu u on r.menu_id = u.menu_id
+                 inner join sys_role sr on u.role_id = sr.id
+                 inner join sys_user_role ur on sr.id = ur.role_id
+                 inner join sys_menu m on r.menu_id = m.id
+        where ur.user_id = #{userId}
+          and r.menu_id not in (select id from sys_menu where target   in ('modifyPwd','exitSystem','home'))
+          and r.menu_id != '1' and m.is_show = '1' and m.type_ not in ('3','4')
+        order by s.sort
+    </select>
+</mapper>

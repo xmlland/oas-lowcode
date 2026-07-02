@@ -1,0 +1,31 @@
+@font-face {
+    font-family: "Noto Sans SC";
+    src: url('NotoSansSC-Regular.otf');
+    font-weight: normal;
+    font-style: normal;
+}
+@font-face {
+    font-family: "Noto Sans SC Light";
+    src: url('NotoSansSC-Light.otf');
+    font-weight: normal;
+    font-style: normal;
+}@font-face {
+    font-family: "Noto Sans SC Thin";
+    src: url('NotoSansSC-Thin.otf');
+    font-weight: normal;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: "Source Han Sans SC";
+    src: url('NotoSansSC-Regular.otf');
+    font-weight: normal;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: "Gilroy";
+    src: url('gilroy-regular-3.otf');
+    font-weight: normal;
+    font-style: normal;
+}

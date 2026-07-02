@@ -1,0 +1,599 @@
+{
+	"standardName": "海水水质标准GB3097-1997",
+	"standardLevel": ["一类", "二类", "三类", "四类"],
+	"otherLevel": "劣四类",
+	"wrw": [{
+			"wrwmc": "悬浮物质",
+			"wrwbm": "w0301001",
+			"wrwxz": [{
+				"symbol": "≤",
+				"upperLimit": 10
+			}, {
+				"symbol": "≤",
+				"upperLimit": 10
+			}, {
+				"symbol": "≤",
+				"upperLimit": 100
+			}, {
+				"symbol": "≤",
+				"upperLimit": 150
+			}]
+		},
+		{
+			"wrwmc": "大肠菌群",
+			"wrwbm": "w0301002",
+			"wrwxz": [{
+				"symbol": "≤",
+				"upperLimit": 10000
+			}, {
+				"symbol": "≤",
+				"upperLimit": 10000
+			}, {
+				"symbol": "≤",
+				"upperLimit": 10000
+			}]
+		},
+		{
+			"wrwmc": "粪大肠菌群",
+			"wrwbm": "w0301003",
+			"wrwxz": [{
+				"symbol": "≤",
+				"upperLimit": 2000
+			}, {
+				"symbol": "≤",
+				"upperLimit": 2000
+			}, {
+				"symbol": "≤",
+				"upperLimit": 2000
+			}]
+		},
+		{
+			"wrwmc": "pH",
+			"wrwbm": "w0301004",
+			"wrwxz": [{
+				"symbol": "~",
+				"upperLimit": 8.5,
+				"lowerLimit": 7.8
+			}, {
+				"symbol": "~",
+				"upperLimit": 8.5,
+				"lowerLimit": 7.8
+			}, {
+				"symbol": "~",
+				"upperLimit": 6.8,
+				"lowerLimit": 8.8
+			}, {
+				"symbol": "~",
+				"upperLimit": 6.8,
+				"lowerLimit": 8.8
+			}]
+		},
+		{
+			"wrwmc": "溶解氧",
+			"wrwbm": "w0301005",
+			"wrwxz": [{
+				"symbol": ">",
+				"lowerLimit": 6
+			}, {
+				"symbol": ">",
+				"lowerLimit": 5
+			}, {
+				"symbol": ">",
+				"lowerLimit": 4
+			}, {
+				"symbol": ">",
+				"lowerLimit": 3
+			}]
+		},
+		{
+			"wrwmc": "化学需氧量",
+			"wrwbm": "w0301006",
+			"wrwxz": [{
+				"symbol": "≤",
+				"upperLimit": 2
+			}, {
+				"symbol": "≤",
+				"upperLimit": 3
+			}, {
+				"symbol": "≤",
+				"upperLimit": 4
+			}, {
+				"symbol": "≤",
+				"upperLimit": 5
+			}]
+		},
+		{
+			"wrwmc": "生化需氧量",
+			"wrwbm": "w0301007",
+			"wrwxz": [{
+				"symbol": "≤",
+				"upperLimit": 1
+			}, {
+				"symbol": "≤",
+				"upperLimit": 3
+			}, {
+				"symbol": "≤",
+				"upperLimit": 4
+			}, {
+				"symbol": "≤",
+				"upperLimit": 5
+			}]
+		},
+		{
+			"wrwmc": "无机氮",
+			"wrwbm": "w0301008",
+			"wrwxz": [{
+				"symbol": "≤",
+				"upperLimit": 0.2
+			}, {
+				"symbol": "≤",
+				"upperLimit": 0.3
+			}, {
+				"symbol": "≤",
+				"upperLimit": 0.4
+			}, {
+				"symbol": "≤",
+				"upperLimit": 0.5
+			}]
+		},
+		{
+			"wrwmc": "非离子氨",
+			"wrwbm": "w0301009",
+			"wrwxz": [{
+				"symbol": "≤",
+				"upperLimit": 0.02
+			}, {
+				"symbol": "≤",
+				"upperLimit": 0.02
+			}, {
+				"symbol": "≤",
+				"upperLimit": 0.02
+			}, {
+				"symbol": "≤",
+				"upperLimit": 0.02
+			}]
+		},
+		{
+			"wrwmc": "活性磷酸盐",
+			"wrwbm": "w0301010",
+			"wrwxz": [{
+				"symbol": "≤",
+				"upperLimit": 0.015
+			}, {
+				"symbol": "≤",
+				"upperLimit": 0.03
+			}, {
+				"symbol": "≤",
+				"upperLimit": 0.03
+			}, {
+				"symbol": "≤",
+				"upperLimit": 0.045
+			}]
+		},
+		{
+			"wrwmc": "汞",
+			"wrwbm": "w0301011",
+			"wrwxz": [{
+				"symbol": "≤",
+				"upperLimit": 0.00005
+			}, {
+				"symbol": "≤",
+				"upperLimit": 0.0002
+			}, {
+				"symbol": "≤",
+				"upperLimit": 0.0002
+			}, {
+				"symbol": "≤",
+				"upperLimit": 0.0005
+			}]
+		},
+		{
+			"wrwmc": "镉",
+			"wrwbm": "w0301012",
+			"wrwxz": [{
+				"symbol": "≤",
+				"upperLimit": 0.001
+			}, {
+				"symbol": "≤",
+				"upperLimit": 0.005
+			}, {
+				"symbol": "≤",
+				"upperLimit": 0.01
+			}, {
+				"symbol": "≤",
+				"upperLimit": 0.01
+			}]
+		},
+		{
+			"wrwmc": "铅",
+			"wrwbm": "w0301013",
+			"wrwxz": [{
+				"symbol": "≤",
+				"upperLimit": 0.001
+			}, {
+				"symbol": "≤",
+				"upperLimit": 0.005
+			}, {
+				"symbol": "≤",
+				"upperLimit": 0.01
+			}, {
+				"symbol": "≤",
+				"upperLimit": 0.05
+			}]
+		},
+		{
+			"wrwmc": "六价铬",
+			"wrwbm": "w0301014",
+			"wrwxz": [{
+				"symbol": "≤",
+				"upperLimit": 0.005
+			}, {
+				"symbol": "≤",
+				"upperLimit": 0.01
+			}, {
+				"symbol": "≤",
+				"upperLimit": 0.02
+			}, {
+				"symbol": "≤",
+				"upperLimit": 0.05
+			}]
+		},
+		{
+			"wrwmc": "总铬",
+			"wrwbm": "w0301015",
+			"wrwxz": [{
+				"symbol": "≤",
+				"upperLimit": 0.05
+			}, {
+				"symbol": "≤",
+				"upperLimit": 0.1
+			}, {
+				"symbol": "≤",
+				"upperLimit": 0.2
+			}, {
+				"symbol": "≤",
+				"upperLimit": 0.5
+			}]
+		},
+		{
+			"wrwmc": "砷",
+			"wrwbm": "w0301016",
+			"wrwxz": [{
+				"symbol": "≤",
+				"upperLimit": 0.02
+			}, {
+				"symbol": "≤",
+				"upperLimit": 0.03
+			}, {
+				"symbol": "≤",
+				"upperLimit": 0.05
+			}, {
+				"symbol": "≤",
+				"upperLimit": 0.05
+			}]
+		},
+		{
+			"wrwmc": "铜",
+			"wrwbm": "w0301017",
+			"wrwxz": [{
+				"symbol": "≤",
+				"upperLimit": 0.005
+			}, {
+				"symbol": "≤",
+				"upperLimit": 0.01
+			}, {
+				"symbol": "≤",
+				"upperLimit": 0.05
+			}, {
+				"symbol": "≤",
+				"upperLimit": 0.05
+			}]
+		},
+		{
+			"wrwmc": "锌",
+			"wrwbm": "w0301018",
+			"wrwxz": [{
+				"symbol": "≤",
+				"upperLimit": 0.02
+			}, {
+				"symbol": "≤",
+				"upperLimit": 0.05
+			}, {
+				"symbol": "≤",
+				"upperLimit": 0.1
+			}, {
+				"symbol": "≤",
+				"upperLimit": 0.5
+			}]
+		},
+		{
+			"wrwmc": "硒",
+			"wrwbm": "w0301019",
+			"wrwxz": [{
+				"symbol": "≤",
+				"upperLimit": 0.01
+			}, {
+				"symbol": "≤",
+				"upperLimit": 0.02
+			}, {
+				"symbol": "≤",
+				"upperLimit": 0.02
+			}, {
+				"symbol": "≤",
+				"upperLimit": 0.05
+			}]
+		},
+		{
+			"wrwmc": "镍",
+			"wrwbm": "w0301020",
+			"wrwxz": [{
+				"symbol": "≤",
+				"upperLimit": 0.005
+			}, {
+				"symbol": "≤",
+				"upperLimit": 0.01
+			}, {
+				"symbol": "≤",
+				"upperLimit": 0.02
+			}, {
+				"symbol": "≤",
+				"upperLimit": 0.05
+			}]
+		},
+		{
+			"wrwmc": "氰化物",
+			"wrwbm": "w0301021",
+			"wrwxz": [{
+				"symbol": "≤",
+				"upperLimit": 0.005
+			}, {
+				"symbol": "≤",
+				"upperLimit": 0.005
+			}, {
+				"symbol": "≤",
+				"upperLimit": 0.1
+			}, {
+				"symbol": "≤",
+				"upperLimit": 0.2
+			}]
+		},
+		{
+			"wrwmc": "硫化物",
+			"wrwbm": "w0301022",
+			"wrwxz": [{
+				"symbol": "≤",
+				"upperLimit": 0.02
+			}, {
+				"symbol": "≤",
+				"upperLimit": 0.05
+			}, {
+				"symbol": "≤",
+				"upperLimit": 0.1
+			}, {
+				"symbol": "≤",
+				"upperLimit": 0.25
+			}]
+		},
+		{
+			"wrwmc": "挥发酚",
+			"wrwbm": "w0301023",
+			"wrwxz": [{
+				"symbol": "≤",
+				"upperLimit": 0.005
+			}, {
+				"symbol": "≤",
+				"upperLimit": 0.005
+			}, {
+				"symbol": "≤",
+				"upperLimit": 0.01
+			}, {
+				"symbol": "≤",
+				"upperLimit": 0.05
+			}]
+		},
+		{
+			"wrwmc": "石油类",
+			"wrwbm": "w0301024",
+			"wrwxz": [{
+				"symbol": "≤",
+				"upperLimit": 0.05
+			}, {
+				"symbol": "≤",
+				"upperLimit": 0.05
+			}, {
+				"symbol": "≤",
+				"upperLimit": 0.3
+			}, {
+				"symbol": "≤",
+				"upperLimit": 0.5
+			}]
+		},
+		{
+			"wrwmc": "六六六",
+			"wrwbm": "w0301025",
+			"wrwxz": [{
+				"symbol": "≤",
+				"upperLimit": 0.001
+			}, {
+				"symbol": "≤",
+				"upperLimit": 0.002
+			}, {
+				"symbol": "≤",
+				"upperLimit": 0.003
+			}, {
+				"symbol": "≤",
+				"upperLimit": 0.005
+			}]
+		},
+		{
+			"wrwmc": "滴滴涕",
+			"wrwbm": "w0301026",
+			"wrwxz": [{
+				"symbol": "≤",
+				"upperLimit": 0.00005
+			}, {
+				"symbol": "≤",
+				"upperLimit": 0.0001
+			}, {
+				"symbol": "≤",
+				"upperLimit": 0.0001
+			}, {
+				"symbol": "≤",
+				"upperLimit": 0.0001
+			}]
+		},
+		{
+			"wrwmc": "马拉硫磷",
+			"wrwbm": "w0301027",
+			"wrwxz": [{
+				"symbol": "≤",
+				"upperLimit": 0.0005
+			}, {
+				"symbol": "≤",
+				"upperLimit": 0.001
+			}, {
+				"symbol": "≤",
+				"upperLimit": 0.001
+			}, {
+				"symbol": "≤",
+				"upperLimit": 0.001
+			}]
+		},
+		{
+			"wrwmc": "甲基对硫磷",
+			"wrwbm": "w0301028",
+			"wrwxz": [{
+				"symbol": "≤",
+				"upperLimit": 0.0005
+			}, {
+				"symbol": "≤",
+				"upperLimit": 0.001
+			}, {
+				"symbol": "≤",
+				"upperLimit": 0.001
+			}, {
+				"symbol": "≤",
+				"upperLimit": 0.001
+			}]
+		},
+		{
+			"wrwmc": "苯并(a)芘",
+			"wrwbm": "w0301029",
+			"wrwxz": [{
+				"symbol": "≤",
+				"upperLimit": 0.0025
+			}, {
+				"symbol": "≤",
+				"upperLimit": 0.0025
+			}, {
+				"symbol": "≤",
+				"upperLimit": 0.0025
+			}, {
+				"symbol": "≤",
+				"upperLimit": 0.0025
+			}]
+		},
+		{
+			"wrwmc": "阴离子表面活性剂",
+			"wrwbm": "w0301030",
+			"wrwxz": [{
+				"symbol": "≤",
+				"upperLimit": 0.03
+			}, {
+				"symbol": "≤",
+				"upperLimit": 0.1
+			}, {
+				"symbol": "≤",
+				"upperLimit": 0.1
+			}, {
+				"symbol": "≤",
+				"upperLimit": 0.1
+			}]
+		},
+		{
+			"wrwmc": "放射性核素-Co60",
+			"wrwbm": "w0301031",
+			"wrwxz": [{
+				"symbol": "≤",
+				"upperLimit": 0.03
+			}, {
+				"symbol": "≤",
+				"upperLimit": 0.03
+			}, {
+				"symbol": "≤",
+				"upperLimit": 0.03
+			}, {
+				"symbol": "≤",
+				"upperLimit": 0.03
+			}]
+		},
+		{
+			"wrwmc": "放射性核素-Sr90",
+			"wrwbm": "w0301032",
+			"wrwxz": [{
+				"symbol": "≤",
+				"upperLimit": 4
+			}, {
+				"symbol": "≤",
+				"upperLimit": 4
+			}, {
+				"symbol": "≤",
+				"upperLimit": 4
+			}, {
+				"symbol": "≤",
+				"upperLimit": 4
+			}]
+		},
+		{
+			"wrwmc": "氡-106",
+			"wrwbm": "w0301033",
+			"wrwxz": [{
+				"symbol": "≤",
+				"upperLimit": 0.2
+			}, {
+				"symbol": "≤",
+				"upperLimit": 0.2
+			}, {
+				"symbol": "≤",
+				"upperLimit": 0.2
+			}, {
+				"symbol": "≤",
+				"upperLimit": 0.2
+			}]
+		},
+		{
+			"wrwmc": "放射性核素-Cs134",
+			"wrwbm": "w0301034",
+			"wrwxz": [{
+				"symbol": "≤",
+				"upperLimit": 0.6
+			}, {
+				"symbol": "≤",
+				"upperLimit": 0.6
+			}, {
+				"symbol": "≤",
+				"upperLimit": 0.6
+			}, {
+				"symbol": "≤",
+				"upperLimit": 0.6
+			}]
+		},
+		{
+			"wrwmc": "放射性核素-Cs137",
+			"wrwbm": "w0301035",
+			"wrwxz": [{
+				"symbol": "≤",
+				"upperLimit": 0.7
+			}, {
+				"symbol": "≤",
+				"upperLimit": 0.7
+			}, {
+				"symbol": "≤",
+				"upperLimit": 0.7
+			}, {
+				"symbol": "≤",
+				"upperLimit": 0.7
+			}]
+		}
+	]
+}

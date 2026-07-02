@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<template>
+  <name>service</name>
+  <filePath>modules/${moduleName}/service</filePath>
+  <fileName>${ClassName}ServiceI.java</fileName>
+  <content><![CDATA[
+package com.jeestudio.bpm.modules.${table.module}.service;
+
+import com.baomidou.mybatisplus.extension.service.IService;
+import com.jeestudio.bpm.modules.${table.module}.entity.${table.javaClassName}Entity;
+
+
+public interface ${table.javaClassName}ServiceI extends IService<${table.javaClassName}Entity> {
+
+}
+  ]]></content>
+</template>

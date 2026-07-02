@@ -1,0 +1,52 @@
+
+import com.alibaba.fastjson.annotation.JSONCreator;
+
+/**
+ * @author ${author}
+ * @Description: ${description}
+ * @time ${time}
+ */
+public enum ${enumName} {
+
+#foreach($item in $enumList)
+    ${item.enumCode.toUpperCase()}("${item.code}", "${item.name}")#if($foreach.hasNext),#end
+#end
+    ;
+
+    private String code;
+    private String name;
+
+    ${enumName}(String code, String name) {
+        this.code = code;
+        this.name = name;
+    }
+
+    public String getCode() {
+        return code;
+    }
+
+    public void setCode(String code) {
+        this.code = code;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    @JSONCreator
+    public static ${enumName} getByCode(String code) {
+        for (${enumName} value : ${enumName}.values()) {
+            if (value.getCode().equals(code)) {
+                return value;
+            }
+        }
+        return null;
+    }
+
+
+
+}

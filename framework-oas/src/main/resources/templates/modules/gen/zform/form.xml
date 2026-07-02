@@ -1,0 +1,1023 @@
+<?xml version="1.0" encoding="utf-8"?>
+<template>
+  <name>form</name>
+  <filePath>views/${table.module}/${table.name}</filePath>
+  <fileName>form.vue</fileName>
+  <content><![CDATA[
+<#assign span24 = ''>
+<#if table.exportRuleName?? && table.exportRuleName?contains('smodal')>
+  <#assign span24 = '24'>
+</#if>
+<#-- 如果是子表，按钮不生成权限标志 -->
+<#assign isChildTable = "0">
+<#if table.parentTable?? && table.parentTable != "">
+  <#assign isChildTable = "1">
+</#if>
+<#if table.isProcessDefinition?? && (table.isProcessDefinition == "1" || table.isProcessDefinition == "2")>
+<#-- 工作流表单 -->
+<#assign hasChildren = false />
+<#list table.childList as subTable>
+  <#assign hasChildren = true />
+  <#break />
+</#list>
+<template>
+  <u-form v-model:value="formModel"
+    extendClass="modern-generated-form ${table.name}-form-view"
+    <#if table.genTableFormProps.subTableType != ''>:subTableType="${table.genTableFormProps.subTableType}" </#if><#if table.genTableFormProps.anchorWidth != ''>:anchorWidth="${table.genTableFormProps.anchorWidth}" </#if><#if table.genTableFormProps.anchorLocation != ''>:anchorLocation="${table.genTableFormProps.anchorLocation}" </#if><#if table.genTableFormProps.getExtendSaveDataFuncStr != ''>:getExtendSaveDataFuncStr="${table.genTableFormProps.getExtendSaveDataFuncStr}" </#if>:showActLog="true" v-model:actRuleArgs="actRuleArgs" v-model:disabled="disabled" :labelWidth="<#if table.genTableFormProps.labelWidth == ''>180<#else>${table.genTableFormProps.labelWidth}</#if>" formNo="${table.name}" <#if hasChildren>mainTableTitle="<#if table.genTableFormProps.mainTableTitle == ''>${table.comments}<#else>${table.genTableFormProps.mainTableTitle}</#if>" :subTables="subTables"</#if> <#if isChildTable == "1" && table.tableType != "4">parentFormNo="${table.parentTable}"</#if> <#if table.pkColumnName?? && table.pkColumnName != ''>:pkColumnName="${table.pkColumnName}"</#if>>
+    <a-row :gutter="16">
+<#assign customValidator="0" />
+<#assign uniqueFlag="" />
+<#list table.columnList as c>
+  <#if c.isForm?? && c.isForm == "1" && (c.isNotBaseField || c.simpleJavaField == 'remarks') && (!c.magicLogic?? || c.magicLogic != "hide")>
+     <#-- 检查规则，字段是否进行唯一值校验 -->
+     <#assign unique="" />
+     <#if c.remarks?? && c.remarks?contains('unique')>
+       <#-- 唯一校验：formModel 中主键属性名始终为 id（SQL 生成固定映射 AS "id"） -->
+       <#assign unique=",uniqueValidator('${table.name}','${c.comments}',formModel.id)" />
+       <#assign uniqueFlag="1" />
+     </#if>
+     <#assign validateType="" />
+     <#if c.validateType?? && c.validateType != '' && c.validateType != 'string'>
+       <#if c.validateType == 'email'>
+         <#assign validateType="{ validator : customValidator.emailValidator, message: '请输入电子邮件'}" />
+       </#if>
+       <#if c.validateType == 'url'>
+         <#assign validateType="{ validator : customValidator.urlValidator, message: '请输入网址'}" />
+       </#if>
+       <#if c.validateType == 'number'>
+         <#assign validateType="{ validator : customValidator.numberValidator, message: '请输入整数'}" />
+       </#if>
+       <#if c.validateType == 'digits'>
+         <#assign validateType="{ validator : customValidator.digitsValidator, message: '请输入数字'}" />
+       </#if>
+       <#if c.validateType == 'creditcard'>
+         <#assign validateType="{ validator : customValidator.creditcardValidator, message: '请输入信用卡号'}" />
+       </#if>
+       <#if c.validateType == 'mobile'>
+         <#assign validateType="{ validator : customValidator.mobileValidator, message: '请输入手机号码'}" />
+       </#if>
+       <#if c.validateType == 'phone'>
+         <#assign validateType="{ validator : customValidator.phoneValidator, message: '请输入电话号码'}" />
+       </#if>
+       <#if c.validateType == 'telephone'>
+         <#assign validateType="{ validator : customValidator.telephoneValidator, message: '请输入联系方式'}" />
+       </#if>
+       <#if c.validateType == 'isQq'>
+         <#assign validateType="{ validator : customValidator.isQqValidator, message: '请输入QQ号码'}" />
+       </#if>
+       <#if c.validateType == 'fax'>
+         <#assign validateType="{ validator : customValidator.faxValidator, message: '请输入传真'}" />
+       </#if>
+       <#if c.validateType == 'zipCode'>
+         <#assign validateType="{ validator : customValidator.zipCodeValidator, message: '请输入邮政编码'}" />
+       </#if>
+       <#if c.validateType == 'idCard'>
+         <#assign validateType="{ validator : customValidator.idCardValidator, message: '请输入身份证号'}" />
+       </#if>
+       <#if c.validateType == 'bankNo'>
+         <#assign validateType="{ validator : customValidator.bankNoValidator, message: '请输入银行卡号'}" />
+       </#if>
+       <#if c.validateType == 'isNumber'>
+         <#assign validateType="{ validator : customValidator.isNumberValidator, message: '请输入数值(整数、小数)'}" />
+       </#if>
+       <#if c.validateType == 'ip'>
+         <#assign validateType="{ validator : customValidator.ipValidator, message: '请输入IP地址'}" />
+       </#if>
+       <#if c.validateType == 'latitude'>
+         <#assign validateType="{ validator : customValidator.latitudeValidator, message: '请输入纬度'}" />
+       </#if>
+       <#if c.validateType == 'longitude'>
+         <#assign validateType="{ validator : customValidator.longitudeValidator, message: '请输入经度'}" />
+       </#if>
+    </#if>
+    <#assign messageStart='请输入' />
+    <#if c.showType == "select"
+      || c.showType == "selectAutoSearch"
+      || c.showType == "selectLocation"
+      || c.showType == "checkbox"
+      || c.showType == "radiobox"
+      || c.showType == "dateselect"
+      || c.showType == "areaselect"
+      || c.showType == "treeselect"
+      || c.showType == "gridselect"
+      || c.showType == "gridtabs"
+      || c.showType == "treeselectRedio"
+      || c.showType == "treeselectCheck"
+      || c.showType == "officeselectTree"
+      || c.showType == "parentId"
+      || c.showType == "iconselect">
+      <#assign messageStart='请选择' />
+    <#elseif c.showType == "fileupload"
+      || c.showType == "fileuploadsec"
+      || c.showType == "fileuploadpic"
+      || c.showType == "fileuploadonline">
+      <#assign messageStart='请上传' />
+    </#if>
+    <#assign requiredFieldName='${c.name}' />
+    <#if c.showType == "areaselect"
+      || c.showType == "treeselect"
+      || c.showType == "gridselect"
+      || c.showType == "gridtabs"
+      || c.showType == "treeselectRedio"
+      || c.showType == "treeselectCheck"
+      || c.showType == "officeselectTree">
+      <#assign requiredFieldName='${c.name}.id' />
+    <#elseif c.showType == "parentId">
+      <#assign requiredFieldName='${c.javaFieldId}' />
+    </#if>
+    <#assign rules='' />
+    <#assign tempMessage = '${messageStart}${c.comments}' />
+    <#if (c.showType == "input" || c.showType == "sortInput") && c.genTableColumnFormItemConfig.placeholder != ''>
+      <#assign tempMessage = '${c.genTableColumnFormItemConfig.placeholder}' />
+    </#if>
+    <#if validateType == ''>
+      <#assign rules=':rules="[{ required: isFormItemRequire(actRuleArgs,\'${requiredFieldName}\'), message: \'${tempMessage}\' }${unique}]"' />
+    <#elseif validateType != ''>
+      <#assign rules=':rules="[{ required: isFormItemRequire(actRuleArgs,\'${requiredFieldName}\'), message: \'${tempMessage}\' }${unique},${validateType}]"' />
+      <#assign customValidator="1" />
+    </#if>
+    <#if c.genTableColumnFormItemConfig.extra != ''>
+      <#assign rules = rules + ' :extra="${c.genTableColumnFormItemConfig.extra}"' />
+    </#if>
+    <#assign span='${c.genTableColumnFormItemConfig.span}' />
+    <#if c.isOneLine??
+        && (c.isOneLine == "1"
+      || c.showType == "richText"
+      || c.showType == "fileselect"
+      || c.showType == "fileselectclassic"
+      || c.showType == "fileselectsec"
+      || c.showType == "fileupload"
+      || c.showType == "fileuploadsec"
+      || c.showType == "fileuploadpic"
+      || c.showType == "fileuploadonline") || span24 != "">
+      <#assign span='24' />
+    </#if>
+    <#assign uuserConfig = '' />
+    <#if c.showType == "treeselectRedio" || c.showType == "treeselectCheck">
+      <#if c.genTableColumnFormItemConfig.dataScope != ''>
+        <#assign uuserConfig = uuserConfig + ':dataScope="${c.genTableColumnFormItemConfig.dataScope}" ' />
+      </#if>
+      <#if c.genTableColumnFormItemConfig.targetOrgId != ''>
+        <#assign uuserConfig = uuserConfig + 'targetOrgId="${c.genTableColumnFormItemConfig.targetOrgId}" ' />
+      </#if>
+      <#if c.genTableColumnFormItemConfig.modalWidth != ''>
+        <#assign uuserConfig = uuserConfig + ':modalWidth="${c.genTableColumnFormItemConfig.modalWidth}" ' />
+      </#if>
+      <#if c.genTableColumnFormItemConfig.hideLoginName == '1'>
+        <#assign uuserConfig = uuserConfig + ':hideLoginName="true" ' />
+      </#if>
+    </#if>
+    <#assign uareaConfig = '' />
+    <#if c.showType == "areaselect">
+      <#if c.genTableColumnFormItemConfig.freeChoice == '1'>
+        <#assign uareaConfig = uareaConfig + ':freeChoice="true" ' />
+      <#else>
+        <#assign uareaConfig = uareaConfig + ':freeChoice="false" ' />
+      </#if>
+      <#if c.genTableColumnFormItemConfig.showRank != ''>
+        <#assign uareaConfig = uareaConfig + ':showRank="${c.genTableColumnFormItemConfig.showRank}" ' />
+      </#if>
+      <#if c.genTableColumnFormItemConfig.rootAreaId != ''>
+        <#assign uareaConfig = uareaConfig + ':rootAreaId="${c.genTableColumnFormItemConfig.rootAreaId}" ' />
+      </#if>
+    </#if>
+    <#assign uuploadConfig = '' />
+    <#if c.showType == "fileupload" || c.showType == "fileuploadsec" || c.showType == "fileuploadpic" || c.showType == "fileuploadonline">
+      <#if c.genTableColumnFormItemConfig.accepts != ''>
+        <#assign uuploadConfig = uuploadConfig + ':accepts="${c.genTableColumnFormItemConfig.accepts}" ' />
+      </#if>
+      <#if c.genTableColumnFormItemConfig.fileCount != ''>
+        <#assign uuploadConfig = uuploadConfig + ':fileCount="${c.genTableColumnFormItemConfig.fileCount}" ' />
+      </#if>
+      <#if c.genTableColumnFormItemConfig.maxSize != ''>
+        <#assign uuploadConfig = uuploadConfig + ':maxSize="${c.genTableColumnFormItemConfig.maxSize}" ' />
+      </#if>
+    </#if>
+    <#assign umselectfilterData = ':filterData=[]' />
+    <#assign umselectsearchConfig = ':searchConfig={}' />
+    <#assign umselectformUpdateMap = ':formUpdateMap={}' />
+    <#assign umselectConfig = '' />
+    <#if c.showType == "gridselect">
+      <#if c.genTableColumnFormItemConfig.targetFormNo != ''>
+        <#assign umselectConfig = umselectConfig + ':targetFormNo="${c.genTableColumnFormItemConfig.targetFormNo}" ' />
+      </#if>
+      <#if c.genTableColumnFormItemConfig.targetField != ''>
+        <#assign umselectConfig = umselectConfig + ':targetField="${c.genTableColumnFormItemConfig.targetField}" ' />
+      </#if>
+      <#if c.genTableColumnFormItemConfig.searchLabelWidth != ''>
+        <#assign umselectConfig = umselectConfig + ':searchLabelWidth="${c.genTableColumnFormItemConfig.searchLabelWidth}" ' />
+      </#if>
+      <#if c.genTableColumnFormItemConfig.searchConfig != ''>
+        <#assign umselectsearchConfig = ':searchConfig="${c.genTableColumnFormItemConfig.searchConfig}" ' />
+      </#if>
+      <#if c.genTableColumnFormItemConfig.modalWidth != ''>
+        <#assign umselectConfig = umselectConfig + ':modalWidth="${c.genTableColumnFormItemConfig.modalWidth}" ' />
+      </#if>
+      <#if c.genTableColumnFormItemConfig.modalTitle != ''>
+        <#assign umselectConfig = umselectConfig + ':modalTitle="${c.genTableColumnFormItemConfig.modalTitle}" ' />
+      </#if>
+      <#if c.genTableColumnFormItemConfig.formUpdateMap != ''>
+        <#assign umselectformUpdateMap = ':formUpdateMap="${c.genTableColumnFormItemConfig.formUpdateMap}" ' />
+      </#if>
+      <#if c.genTableColumnFormItemConfig.nameDataIndex != ''>
+        <#assign umselectConfig = umselectConfig + ':nameDataIndex="${c.genTableColumnFormItemConfig.nameDataIndex}" ' />
+      </#if>
+      <#assign selectDsf='' />
+      <#if c.selectDsf??>
+        <#assign selectDsf=c.selectDsf?replace("’","'") />
+      </#if>
+      <#if c.genTableColumnFormItemConfig.filterData != ''>
+        <#assign umselectfilterData = ':filterData="${c.genTableColumnFormItemConfig.filterData}" ' />
+      </#if>
+      <#if c.genTableColumnFormItemConfig.filterData == '' && selectDsf != ''>
+        <#assign umselectfilterData = ':filterData="[${selectDsf}]" ' />
+      </#if>
+    </#if>
+    <#if c.showType == "input" || c.showType == "sortInput">
+      <a-col :span="${span}" v-if="isFormItemShow(actRuleArgs,'${c.name}')">
+        <a-form-item name="${c.name}" label="${c.comments}" ${rules}>
+          <u-input<#if c.validateType == 'number'> type="number"<#elseif c.validateType == 'digits'> type="digits"</#if> :disabled="disabled || isFormItemDisabled(actRuleArgs,'${c.name}')" defaultValue="${c.defaultValue}" v-model:value="formModel.${c.name}" placeholder="<#if c.genTableColumnFormItemConfig.placeholder = ''>${messageStart}${c.comments}<#else>${c.genTableColumnFormItemConfig.placeholder}</#if>" <#if c.maxLength != '' && c.validateType != 'number' && c.validateType != 'digits'>:maxlength="${c.maxLength}"</#if> <#if c.genTableColumnFormItemConfig.min != ''>:min="${c.genTableColumnFormItemConfig.min}" </#if><#if c.genTableColumnFormItemConfig.max != ''>:max="${c.genTableColumnFormItemConfig.max}" </#if>/>
+        </a-form-item>
+      </a-col>
+    <#elseif c.showType == "textarea">
+      <a-col :span="${span}" v-if="isFormItemShow(actRuleArgs,'${c.name}')">
+        <a-form-item name="${c.name}" label="${c.comments}" ${rules}>
+          <u-input :disabled="disabled || isFormItemDisabled(actRuleArgs,'${c.name}')" :textarea="true" defaultValue="${c.defaultValue}" v-model:value="formModel.${c.name}" placeholder="<#if c.genTableColumnFormItemConfig.placeholder = ''>${messageStart}${c.comments}<#else>${c.genTableColumnFormItemConfig.placeholder}</#if>" <#if c.maxLength != ''>:maxlength="${c.maxLength}"</#if>/>
+        </a-form-item>
+      </a-col>
+    <#elseif c.showType == "select">
+      <#if c.selectSimple?? && c.selectSimple == '0'>
+      <a-col :span="${span}" v-if="isFormItemShow(actRuleArgs,'${c.name}.id')">
+        <a-form-item name="${c.name}" label="${c.comments}" ${rules}>
+          <u-select :disabled="disabled || isFormItemDisabled(actRuleArgs,'${c.name}')" form-type="select" defaultValue="${c.defaultValue}" v-model:value="formModel.${c.name}" type="table" dict-type="${c.tableName}" valueField="${c.selectValuefield}" textField="${c.searchKey}" tableOrderBy="${c.selectOrder}"
+                    :tableFilterData="<#if c.genTableColumnFormItemConfig.tableFilterData = ''>[${c.selectDsf}]<#else>${c.genTableColumnFormItemConfig.tableFilterData}</#if>"<#if c.genTableColumnFormItemConfig.formatFuncStr != ''> formatFuncStr="${c.genTableColumnFormItemConfig.formatFuncStr}"</#if> placeholder="${messageStart}${c.comments}"/>
+        </a-form-item>
+      </a-col>
+        <#else>
+      <a-col :span="${span}" v-if="isFormItemShow(actRuleArgs,'${c.name}')">
+        <a-form-item name="${c.name}" label="${c.comments}" ${rules}>
+          <u-select :disabled="disabled || isFormItemDisabled(actRuleArgs,'${c.name}')" form-type="select" defaultValue="${c.defaultValue}" v-model:value="formModel.${c.name}" dict-type="${c.dictType}" placeholder="${messageStart}${c.comments}"/>
+        </a-form-item>
+      </a-col>
+        </#if>
+    <#elseif c.showType == "selectAutoSearch">
+      <a-col :span="${span}" v-if="isFormItemShow(actRuleArgs,'${c.name}')">
+        <a-form-item name="${c.name}" label="${c.comments}" ${rules}>
+          <u-select :disabled="disabled || isFormItemDisabled(actRuleArgs,'${c.name}')" form-type="selectAutoSearch" defaultValue="${c.defaultValue}" v-model:value="formModel.${c.name}" tableName="${c.tableName}" searchKey="${c.searchKey}" searchJavaField="${c.searchJavaField}" javaField="${c.javaField}" placeholder="${messageStart}${c.comments}" />
+        </a-form-item>
+      </a-col>
+      <#elseif c.showType == "selectLocation">
+      <a-col :span="${span}" v-if="isFormItemShow(actRuleArgs,'${c.name}')">
+        <a-form-item name="${c.name}" label="${c.comments}" ${rules}>
+          <u-select :disabled="disabled || isFormItemDisabled(actRuleArgs,'${c.name}')" form-type="selectLocation" defaultValue="${c.defaultValue}" v-model:value="formModel.${c.name}" dict-type="${c.dictType}" placeholder="${messageStart}${c.comments}" />
+        </a-form-item>
+      </a-col>
+    <#elseif c.showType == "checkbox">
+      <a-col :span="${span}" v-if="isFormItemShow(actRuleArgs,'${c.name}')">
+        <a-form-item name="${c.name}" label="${c.comments}" ${rules}>
+          <u-select :disabled="disabled || isFormItemDisabled(actRuleArgs,'${c.name}')" :multiple="true" form-type="checkbox" defaultValue="${c.defaultValue}" v-model:value="formModel.${c.name}" dict-type="${c.dictType}" placeholder="${messageStart}${c.comments}" />
+        </a-form-item>
+      </a-col>
+    <#elseif c.showType == "radiobox">
+      <a-col :span="${span}" v-if="isFormItemShow(actRuleArgs,'${c.name}')">
+        <a-form-item name="${c.name}" label="${c.comments}" ${rules}>
+          <u-select :disabled="disabled || isFormItemDisabled(actRuleArgs,'${c.name}')" form-type="radio" defaultValue="${c.defaultValue}" v-model:value="formModel.${c.name}" dict-type="${c.dictType}" placeholder="${messageStart}${c.comments}" />
+        </a-form-item>
+      </a-col>
+    <#elseif c.showType == "dateselect">
+      <#assign mvalue='' />
+      <#if c.genTableColumnFormItemConfig.maxValue != ''>
+        <#assign mvalue = '${c.genTableColumnFormItemConfig.maxValue} ' />
+      </#if>
+      <#if c.genTableColumnFormItemConfig.minValue != ''>
+        <#assign mvalue = mvalue + '${c.genTableColumnFormItemConfig.minValue} ' />
+      </#if>
+      <a-col :span="${span}" v-if="isFormItemShow(actRuleArgs,'${c.name}')">
+        <a-form-item name="${c.name}" label="${c.comments}" ${rules}>
+          <u-date :disabled="disabled || isFormItemDisabled(actRuleArgs,'${c.name}')" defaultValue="${c.defaultValue}" v-model:value="formModel.${c.name}" formatPatter="${c.dateType}" ${mvalue}placeholder="${messageStart}${c.comments}"/>
+        </a-form-item>
+      </a-col>
+    <#elseif c.showType == "areaselect">
+      <a-col :span="${span}" v-if="isFormItemShow(actRuleArgs,'${c.name}.id')">
+        <a-form-item name="${c.name}" label="${c.comments}" ${rules}>
+          <u-area :disabled="disabled || isFormItemDisabled(actRuleArgs,'${c.name}.id')" defaultValue="${c.defaultValue}" v-model:value="formModel.${c.name}" ${uareaConfig}placeholder="${messageStart}${c.comments}"/>
+        </a-form-item>
+      </a-col>
+    <#elseif c.showType == "fileupload">
+      <a-col :span="${span}" v-if="isFormItemShow(actRuleArgs,'${c.name}')">
+        <a-form-item name="${c.name}" label="${c.comments}" ${rules}>
+          <u-upload :disabled="disabled || isFormItemDisabled(actRuleArgs,'${c.name}')" v-model:value="formModel.${c.name}" ${uuploadConfig}/>
+        </a-form-item>
+      </a-col>
+    <#elseif c.showType == "fileuploadsec">
+      <a-col :span="${span}" v-if="isFormItemShow(actRuleArgs,'${c.name}')">
+        <a-form-item name="${c.name}" label="${c.comments}" ${rules}>
+          <u-upload :sec="true" :disabled="disabled || isFormItemDisabled(actRuleArgs,'${c.name}')" v-model:value="formModel.${c.name}" ${uuploadConfig}/>
+        </a-form-item>
+      </a-col>
+    <#elseif c.showType == "fileuploadpic">
+      <a-col :span="${span}" v-if="isFormItemShow(actRuleArgs,'${c.name}')">
+        <a-form-item name="${c.name}" label="${c.comments}" ${rules}>
+          <u-upload :picture="true" :disabled="disabled || isFormItemDisabled(actRuleArgs,'${c.name}')" v-model:value="formModel.${c.name}" ${uuploadConfig}/>
+        </a-form-item>
+      </a-col>
+    <#elseif c.showType == "fileuploadonline">
+      <a-col :span="${span}" v-if="isFormItemShow(actRuleArgs,'${c.name}')">
+        <a-form-item name="${c.name}" label="${c.comments}" ${rules}>
+          <u-upload :online="true" :disabled="disabled || isFormItemDisabled(actRuleArgs,'${c.name}')" v-model:value="formModel.${c.name}" ${uuploadConfig}/>
+        </a-form-item>
+      </a-col>
+    <#elseif c.showType == "treeselect">
+      <a-col :span="${span}" v-if="isFormItemShow(actRuleArgs,'${c.name}.id')">
+        <a-form-item name="${c.name}" label="${c.comments}" ${rules}>
+          <u-tree-select :disabled="disabled || isFormItemDisabled(actRuleArgs,'${c.name}.id')" defaultValue="${c.defaultValue}" v-model:value="formModel.${c.name}" placeholder="${messageStart}${c.comments}"
+          :props="{actionUrl:'/dynamic/zform/treeData?parentId=0&traceFlag=1&formNo=${c.tableName}',sync:'false',check:'false',chooseParent:'true'}" />
+        </a-form-item>
+      </a-col>
+    <#elseif c.showType == "gridselect">
+      <a-col :span="${span}" v-if="isFormItemShow(actRuleArgs,'${c.name}.id')">
+        <a-form-item name="${c.name}" label="${c.comments}" ${rules}>
+          <u-modal-select formNo="${c.tableName}"
+                         <#if c.genTableColumnFormItemConfig.searchKey != ''>
+                          :searchKey="${c.genTableColumnFormItemConfig.searchKey}"
+                          <#else>
+                          searchKey="${c.searchKey}
+                          </#if>
+                          <#if c.genTableColumnFormItemConfig.searchLabel != ''>
+                          :searchLabel="${c.genTableColumnFormItemConfig.searchLabel}"
+                          <#else>
+                          searchLabel="${c.searchLabel}
+                          </#if>
+                          <#if c.genTableColumnFormItemConfig.columnsList?has_content>
+                          :columns="[
+                          <#list c.genTableColumnFormItemConfig.columnsList as col>
+                           ${col},
+                          </#list>
+                          ]"
+                          <#else>
+                          :columns="[
+                          <#list c.fieldLabels?split(",") as fieldLabel>
+                          {title: '${fieldLabel}', dataIndex:'<#list c.fieldKeys?split(",") as fieldKey><#if fieldLabel_index == fieldKey_index>${fieldKey}</#if></#list>',align: 'left'},
+                          </#list>
+                          ]"
+                          </#if>
+                          ${umselectConfig}
+                          <#if umselectfilterData != ''>${umselectfilterData}</#if>
+                          <#if umselectsearchConfig != ''>${umselectsearchConfig}</#if>
+                          <#if umselectformUpdateMap != ''>${umselectformUpdateMap}</#if>
+                          v-model:formModel="formModel"
+                          :disabled="disabled || isFormItemDisabled(actRuleArgs,'${c.name}.id')" defaultValue="${c.defaultValue}" v-model:value="formModel.${c.name}" placeholder="${messageStart}${c.comments}"/>
+        </a-form-item>
+      </a-col>
+    <#elseif c.showType == "treeselectRedio">
+      <a-col :span="${span}" v-if="isFormItemShow(actRuleArgs,'${c.name}.id')">
+        <a-form-item name="${c.name}" label="${c.comments}" ${rules}>
+          <u-user-select :disabled="disabled || isFormItemDisabled(actRuleArgs,'${c.name}.id')" defaultValue="${c.defaultValue}" v-model:value="formModel.${c.name}" ${uuserConfig}placeholder="${messageStart}${c.comments}"/>
+        </a-form-item>
+      </a-col>
+    <#elseif c.showType == "treeselectCheck">
+      <a-col :span="${span}" v-if="isFormItemShow(actRuleArgs,'${c.name}.id')">
+        <a-form-item name="${c.name}" label="${c.comments}" ${rules}>
+          <u-users-select :disabled="disabled || isFormItemDisabled(actRuleArgs,'${c.name}.id')" defaultValue="${c.defaultValue}" v-model:value="formModel.${c.name}" ${uuserConfig}placeholder="${messageStart}${c.comments}"/>
+        </a-form-item>
+      </a-col>
+    <#elseif c.showType == "officeselectTree">
+      <a-col :span="${span}" v-if="isFormItemShow(actRuleArgs,'${c.name}.id')">
+        <a-form-item name="${c.name}" label="${c.comments}" ${rules}>
+          <u-office-select :disabled="disabled || isFormItemDisabled(actRuleArgs,'${c.name}.id')" defaultValue="${c.defaultValue}" v-model:value="formModel.${c.name}" placeholder="${messageStart}${c.comments}"/>
+        </a-form-item>
+      </a-col>
+    <#elseif c.showType == "parentId">
+      <a-col :span="${span}" v-if="isFormItemShow(actRuleArgs,'parent.id')">
+        <a-form-item name="parent" label="${c.comments}" :validateFirst="true">
+          <u-tree-select formNo="<#if table.tableType?? && table.tableType == "4">${table.parentTable}<#else>${table.name}</#if>" :disabled="disabled || isFormItemDisabled(actRuleArgs,'parent.id')" defaultValue="${c.defaultValue}" v-model:value="formModel.parent" placeholder="${messageStart}${c.comments}"/>
+        </a-form-item>
+      </a-col>
+    <#elseif c.showType == "gridtabs">
+      选择${c.comments}
+    <#elseif c.showType == "iconselect">
+      <a-col :span="${span}" v-if="isFormItemShow(actRuleArgs,'${c.name}')">
+        <a-form-item name="${c.name}" label="${c.comments}" :validateFirst="true" ${rules}>
+          <u-icon-select :disabled="disabled || isFormItemDisabled(actRuleArgs,'${c.name}')" defaultValue="${c.defaultValue}" v-model:value="formModel.${c.name}" placeholder="${messageStart}${c.comments}"/>
+        </a-form-item>
+      </a-col>
+    <#elseif c.showType == "switch">
+      <a-col :span="${span}" v-if="isFormItemShow(actRuleArgs,'${c.name}')">
+        <a-form-item name="${c.name}" label="${c.comments}" ${rules}>
+          <u-switch :disabled="disabled || isFormItemDisabled(actRuleArgs,'${c.name}')" defaultValue="${c.defaultValue}" v-model:value="formModel.${c.name}"/>
+        </a-form-item>
+      </a-col>
+    <#elseif c.showType == "summernote" || c.showType == "richText">
+      <a-col :span="${span}" v-if="isFormItemShow(actRuleArgs,'${c.name}')">
+        <a-form-item name="${c.name}" label="${c.comments}" :validateFirst="true" ${rules}>
+          <u-tinymce :disabled="disabled || isFormItemDisabled(actRuleArgs,'${c.name}')" defaultValue="${c.defaultValue}" v-model:value="formModel.${c.name}"/>
+        </a-form-item>
+      </a-col>
+    <#elseif c.showType == "serialNo">
+      <a-col :span="${span}" v-if="isFormItemShow(actRuleArgs,'${c.name}')">
+        <a-form-item name="${c.name}" label="${c.comments}" ${rules}>
+          <u-serial-no :disabled="disabled || isFormItemDisabled(actRuleArgs,'${c.name}')" defaultValue="${c.defaultValue}" v-model:value="formModel.${c.name}" <#if (c.genTableColumnFormItemConfig.prefix)?? && c.genTableColumnFormItemConfig.prefix != ''>prefix="${c.genTableColumnFormItemConfig.prefix}" </#if>placeholder="<#if c.genTableColumnFormItemConfig.placeholder = ''>${messageStart}${c.comments}<#else>${c.genTableColumnFormItemConfig.placeholder}</#if>"/>
+        </a-form-item>
+      </a-col>
+    </#if>
+  </#if>
+</#list>
+<#list table.extRuleManyToMany as m>
+      <a-col :span="24" v-if="isFormItemShow(actRuleArgs,'${m.name}')">
+        <a-form-item name="${m.name}" label="${m.label}" :validateFirst="true" :rules="[{ required: ${m.required}, message: '请选择${m.label}' }]">
+          <u-modal-multi-select formNo="${m.formNo}"
+                                <#if m.genTableColumnFormItemConfig.modalTitle?? && m.genTableColumnFormItemConfig.modalTitle != ''>
+                                modalTitle="${m.genTableColumnFormItemConfig.modalTitle}"
+                                </#if>
+                                :modalWidth="${m.genTableColumnFormItemConfig.modalWidth}"
+                                <#if m.genTableColumnFormItemConfig.targetFilterData?? && m.genTableColumnFormItemConfig.targetFilterData != ''>
+                                :targetFilterData="${m.genTableColumnFormItemConfig.targetFilterData}"
+                                </#if>
+                                <#if m.genTableColumnFormItemConfig.filterData?? && m.genTableColumnFormItemConfig.filterData != ''>
+                                :filterData="${m.genTableColumnFormItemConfig.filterData}"
+                                </#if>
+                                <#if m.genTableColumnFormItemConfig.searchLabelWidth?? && m.genTableColumnFormItemConfig.searchLabelWidth != ''>
+                                :searchLabelWidth="${m.genTableColumnFormItemConfig.searchLabelWidth}"
+                                </#if>
+                                <#if m.genTableColumnFormItemConfig.searchConfig?? && m.genTableColumnFormItemConfig.searchConfig != ''>
+                                :searchConfig="${m.genTableColumnFormItemConfig.searchConfig}"
+                                </#if>
+                                <#if m.genTableColumnFormItemConfig.searchKey != ''>
+                                :searchKey="${m.genTableColumnFormItemConfig.searchKey}"
+                                <#else>
+                                searchKey="${m.searchKey}
+                                </#if>
+                                <#if m.genTableColumnFormItemConfig.searchLabel != ''>
+                                :searchLabel="${m.genTableColumnFormItemConfig.searchLabel}"
+                                <#else>
+                                searchLabel="${m.searchLabel}
+                                </#if>
+                                <#if m.genTableColumnFormItemConfig.columnsList?has_content>
+                                :columns="[
+                                  <#list m.genTableColumnFormItemConfig.columnsList as col>
+                                  ${col},
+                                  </#list>
+                                ]"
+                                <#else>
+                                :columns="[
+                                  {title: '${m.codeFiledTitle}', dataIndex:'${m.codeFiled}',align: '${m.codeFiledAlign}'},
+                                  {title: '${m.nameFiledTitle}', dataIndex:'${m.nameFiled}',align: '${m.nameFiledAlign}'},
+                                ]"
+                                </#if>
+                                codeFiled="${m.codeFiled}"
+                                nameFiled="${m.nameFiled}"
+                                :format="item=>{
+                                  if (item.code) { return `${'$'}{item.name} （${'$'}{item.code}）` } return item.name
+                                }"
+                                :disabled="disabled || isFormItemDisabled(actRuleArgs,'${m.name}')" v-model:value="formModel.${m.name}"
+                                placeholder="请选择${m.label}"/>
+        </a-form-item>
+      </a-col>
+</#list>
+      <!--
+      <template v-if="actExtendShow(actRuleArgs)">
+        <a-divider/>
+        <slot v-if="!disabled" name="actComment" v-bind="formItemStatus(actRuleArgs,'act.comment')"/>
+        <slot name="actLog" v-bind="formItemStatus(actRuleArgs,'act.log')"/>
+      </template>
+      -->
+    </a-row>
+  </u-form>
+</template>
+
+<script>
+export default {
+  name: "${table.name}_form",
+}
+</script>
+<script setup>
+import {isFormItemShow, isFormItemDisabled, isFormItemRequire} from "@/lib/act/actForm";
+import {ref} from "vue";
+<#list table.childList as subTable>
+import ${subTable.name?replace(".","_","i")}_list from "@/views/${subTable.module}/${subTable.name}/list";
+</#list>
+<#if uniqueFlag != "">
+import {uniqueValidator} from "@/lib/validator";
+</#if>
+<#if customValidator == "1" >
+import * as validator from "@/lib/validator"
+let customValidator = ref(validator)
+</#if>
+let formModel = ref({})
+let disabled = ref(false)
+let actRuleArgs = ref({})
+<#if hasChildren>
+let subTables = ref([
+<#list table.childList as subTable>
+  {title: '${subTable.comments}', component: ${subTable.name?replace(".","_","i")}_list},
+</#list>
+])
+</#if>
+
+</script>
+<style scoped>
+</style>
+<#else>
+<#-- 非工作流表单 -->
+<#assign hasChildren = false />
+<#list table.childList as subTable>
+  <#assign hasChildren = true />
+  <#break />
+</#list>
+<template>
+  <u-form v-model:value="formModel"
+    extendClass="modern-generated-form ${table.name}-form-view"
+    <#if table.genTableFormProps.subTableType != ''>:subTableType="${table.genTableFormProps.subTableType}" </#if><#if table.genTableFormProps.anchorWidth != ''>:anchorWidth="${table.genTableFormProps.anchorWidth}" </#if><#if table.genTableFormProps.anchorLocation != ''>:anchorLocation="${table.genTableFormProps.anchorLocation}" </#if><#if table.genTableFormProps.getExtendSaveDataFuncStr != ''>:getExtendSaveDataFuncStr="${table.genTableFormProps.getExtendSaveDataFuncStr}" </#if>v-model:disabled="disabled" :labelWidth="<#if table.genTableFormProps.labelWidth == ''>180<#else>${table.genTableFormProps.labelWidth}</#if>" formNo="${table.name}" <#if hasChildren>mainTableTitle="${table.comments}" :subTables="subTables"</#if> <#if isChildTable == "1" && table.tableType != "4">parentFormNo="${table.parentTable}"</#if> <#if table.pkColumnName?? && table.pkColumnName != ''>:pkColumnName="${table.pkColumnName}"</#if>>
+    <a-row :gutter="16">
+<#assign customValidator="0" />
+<#assign uniqueFlag="" />
+<#list table.columnList as c>
+  <#if c.isForm?? && c.isForm == "1" && (c.isNotBaseField || c.simpleJavaField == 'remarks') && (!c.magicLogic?? || c.magicLogic != "hide")>
+     <#-- 是否可编辑 -->
+     <#assign disabled="disabled" />
+     <#if c.isEdit?? && c.isEdit == '0'>
+       <#assign disabled="true" />
+     </#if>
+     <#-- 检查规则，字段是否进行唯一值校验 -->
+     <#assign unique="" />
+     <#if c.remarks?? && c.remarks?contains('unique')>
+       <#-- 唯一校验：formModel 中主键属性名始终为 id（SQL 生成固定映射 AS "id"） -->
+       <#assign unique=",uniqueValidator('${table.name}','${c.comments}',formModel.id)" />
+       <#assign uniqueFlag="1" />
+     </#if>
+     <#assign validateType="" />
+     <#if c.validateType?? && c.validateType != '' && c.validateType != 'string'>
+         <#if c.validateType == 'email'>
+         <#assign validateType="{ validator : customValidator.emailValidator, message: '请输入电子邮件'}" />
+       </#if>
+       <#if c.validateType == 'url'>
+         <#assign validateType="{ validator : customValidator.urlValidator, message: '请输入网址'}" />
+       </#if>
+       <#if c.validateType == 'number'>
+         <#assign validateType="{ validator : customValidator.numberValidator, message: '请输入整数'}" />
+       </#if>
+       <#if c.validateType == 'digits'>
+         <#assign validateType="{ validator : customValidator.digitsValidator, message: '请输入数字'}" />
+       </#if>
+       <#if c.validateType == 'creditcard'>
+         <#assign validateType="{ validator : customValidator.creditcardValidator, message: '请输入信用卡号'}" />
+       </#if>
+       <#if c.validateType == 'mobile'>
+         <#assign validateType="{ validator : customValidator.mobileValidator, message: '请输入手机号码'}" />
+       </#if>
+       <#if c.validateType == 'phone'>
+         <#assign validateType="{ validator : customValidator.phoneValidator, message: '请输入电话号码'}" />
+       </#if>
+       <#if c.validateType == 'telephone'>
+         <#assign validateType="{ validator : customValidator.telephoneValidator, message: '请输入联系方式'}" />
+       </#if>
+       <#if c.validateType == 'isQq'>
+         <#assign validateType="{ validator : customValidator.isQqValidator, message: '请输入QQ号码'}" />
+       </#if>
+       <#if c.validateType == 'fax'>
+         <#assign validateType="{ validator : customValidator.faxValidator, message: '请输入传真'}" />
+       </#if>
+       <#if c.validateType == 'zipCode'>
+         <#assign validateType="{ validator : customValidator.zipCodeValidator, message: '请输入邮政编码'}" />
+       </#if>
+       <#if c.validateType == 'idCard'>
+         <#assign validateType="{ validator : customValidator.idCardValidator, message: '请输入身份证号'}" />
+       </#if>
+       <#if c.validateType == 'bankNo'>
+         <#assign validateType="{ validator : customValidator.bankNoValidator, message: '请输入银行卡号'}" />
+       </#if>
+       <#if c.validateType == 'isNumber'>
+         <#assign validateType="{ validator : customValidator.isNumberValidator, message: '请输入数值(整数、小数)'}" />
+       </#if>
+       <#if c.validateType == 'ip'>
+         <#assign validateType="{ validator : customValidator.ipValidator, message: '请输入IP地址'}" />
+       </#if>
+       <#if c.validateType == 'latitude'>
+         <#assign validateType="{ validator : customValidator.latitudeValidator, message: '请输入纬度'}" />
+       </#if>
+       <#if c.validateType == 'longitude'>
+         <#assign validateType="{ validator : customValidator.longitudeValidator, message: '请输入经度'}" />
+       </#if>
+     </#if>
+    <#assign messageStart='请输入' />
+    <#if c.showType == "select"
+      || c.showType == "selectAutoSearch"
+      || c.showType == "selectLocation"
+      || c.showType == "checkbox"
+      || c.showType == "radiobox"
+      || c.showType == "dateselect"
+      || c.showType == "areaselect"
+      || c.showType == "treeselect"
+      || c.showType == "gridselect"
+      || c.showType == "gridtabs"
+      || c.showType == "treeselectRedio"
+      || c.showType == "treeselectCheck"
+      || c.showType == "officeselectTree"
+      || c.showType == "parentId"
+      || c.showType == "iconselect">
+      <#assign messageStart='请选择' />
+    <#elseif c.showType == "fileupload"
+      || c.showType == "fileuploadsec"
+      || c.showType == "fileuploadpic"
+      || c.showType == "fileuploadonline">
+      <#assign messageStart='请上传' />
+    </#if>
+    <#assign tempMessage = '${messageStart}${c.comments}' />
+    <#if (c.showType == "input" || c.showType == "sortInput") && c.genTableColumnFormItemConfig.placeholder != ''>
+      <#assign tempMessage = '${c.genTableColumnFormItemConfig.placeholder}' />
+    </#if>
+    <#assign required="" />
+     <#if c.isNull?? && c.isNull != '1'>
+       <#assign required="{ required: true, message: '${tempMessage}' }" />
+     </#if>
+     <#assign rules='' />
+     <#if required != '' && validateType == ''>
+       <#assign rules=':rules="[{ required: true, message: \'${tempMessage}\' }${unique}]"' />
+     <#elseif required != '' && validateType != ''>
+       <#assign rules=':rules="[{ required: true, message: \'${tempMessage}\' }${unique},${validateType}]"' />
+       <#assign customValidator="1" />
+     <#elseif required == '' && validateType != ''>
+       <#assign rules=':rules="[${unique}${validateType}]"' />
+       <#assign customValidator="1" />
+     <#elseif unique != ''>
+       <#assign rules=':rules="[${unique}]"' />
+     </#if>
+     <#if c.genTableColumnFormItemConfig.extra != ''>
+       <#assign rules = rules + ' :extra="${c.genTableColumnFormItemConfig.extra}"' />
+     </#if>
+     <#assign span='${c.genTableColumnFormItemConfig.span}' />
+      <#if c.isOneLine??
+        && (c.isOneLine == "1"
+      || c.showType == "fileselect"
+      || c.showType == "fileselectclassic"
+      || c.showType == "fileselectsec"
+      || c.showType == "fileupload"
+      || c.showType == "fileuploadsec"
+      || c.showType == "fileuploadpic"
+      || c.showType == "fileuploadonline") || span24 != "">
+      <#assign span='24' />
+      </#if>
+      <#assign uuserConfig = '' />
+      <#if c.showType == "treeselectRedio" || c.showType == "treeselectCheck">
+        <#if c.genTableColumnFormItemConfig.dataScope != ''>
+          <#assign uuserConfig = uuserConfig + ':dataScope="${c.genTableColumnFormItemConfig.dataScope}" ' />
+        </#if>
+        <#if c.genTableColumnFormItemConfig.targetOrgId != ''>
+          <#assign uuserConfig = uuserConfig + 'targetOrgId="${c.genTableColumnFormItemConfig.targetOrgId}" ' />
+        </#if>
+        <#if c.genTableColumnFormItemConfig.modalWidth != ''>
+          <#assign uuserConfig = uuserConfig + ':modalWidth="${c.genTableColumnFormItemConfig.modalWidth}" ' />
+        </#if>
+        <#if c.genTableColumnFormItemConfig.hideLoginName == '1'>
+          <#assign uuserConfig = uuserConfig + ':hideLoginName="true" ' />
+        </#if>
+      </#if>
+      <#assign uareaConfig = '' />
+      <#if c.showType == "areaselect">
+        <#if c.genTableColumnFormItemConfig.freeChoice == '1'>
+          <#assign uareaConfig = uareaConfig + ':freeChoice="true" ' />
+        <#else>
+          <#assign uareaConfig = uareaConfig + ':freeChoice="false" ' />
+        </#if>
+        <#if c.genTableColumnFormItemConfig.showRank != ''>
+          <#assign uareaConfig = uareaConfig + ':showRank="${c.genTableColumnFormItemConfig.showRank}" ' />
+        </#if>
+        <#if c.genTableColumnFormItemConfig.rootAreaId != ''>
+          <#assign uareaConfig = uareaConfig + ':rootAreaId="${c.genTableColumnFormItemConfig.rootAreaId}" ' />
+        </#if>
+      </#if>
+      <#assign uuploadConfig = '' />
+      <#if c.showType == "fileupload" || c.showType == "fileuploadsec" || c.showType == "fileuploadpic" || c.showType == "fileuploadonline">
+        <#if c.genTableColumnFormItemConfig.accepts != ''>
+          <#assign uuploadConfig = uuploadConfig + ':accepts="${c.genTableColumnFormItemConfig.accepts}" ' />
+        </#if>
+        <#if c.genTableColumnFormItemConfig.fileCount != ''>
+          <#assign uuploadConfig = uuploadConfig + ':fileCount="${c.genTableColumnFormItemConfig.fileCount}" ' />
+        </#if>
+        <#if c.genTableColumnFormItemConfig.maxSize != ''>
+          <#assign uuploadConfig = uuploadConfig + ':maxSize="${c.genTableColumnFormItemConfig.maxSize}" ' />
+        </#if>
+      </#if>
+      <#assign umselectfilterData = ':filterData=[]' />
+      <#assign umselectsearchConfig = ':searchConfig={}' />
+      <#assign umselectformUpdateMap = ':formUpdateMap={}' />
+      <#assign umselectConfig = '' />
+      <#if c.showType == "gridselect">
+        <#if c.genTableColumnFormItemConfig.targetFormNo != ''>
+          <#assign umselectConfig = umselectConfig + ':targetFormNo="${c.genTableColumnFormItemConfig.targetFormNo}" ' />
+        </#if>
+        <#if c.genTableColumnFormItemConfig.targetField != ''>
+          <#assign umselectConfig = umselectConfig + ':targetField="${c.genTableColumnFormItemConfig.targetField}" ' />
+        </#if>
+        <#if c.genTableColumnFormItemConfig.searchLabelWidth != ''>
+          <#assign umselectConfig = umselectConfig + ':searchLabelWidth="${c.genTableColumnFormItemConfig.searchLabelWidth}" ' />
+        </#if>
+        <#if c.genTableColumnFormItemConfig.searchConfig != ''>
+          <#assign umselectsearchConfig = ':searchConfig="${c.genTableColumnFormItemConfig.searchConfig}" ' />
+        </#if>
+        <#if c.genTableColumnFormItemConfig.modalWidth != ''>
+          <#assign umselectConfig = umselectConfig + ':modalWidth="${c.genTableColumnFormItemConfig.modalWidth}" ' />
+        </#if>
+        <#if c.genTableColumnFormItemConfig.modalTitle != ''>
+          <#assign umselectConfig = umselectConfig + ':modalTitle="${c.genTableColumnFormItemConfig.modalTitle}" ' />
+        </#if>
+        <#if c.genTableColumnFormItemConfig.formUpdateMap != ''>
+          <#assign umselectformUpdateMap = ':formUpdateMap="${c.genTableColumnFormItemConfig.formUpdateMap}" ' />
+        </#if>
+        <#if c.genTableColumnFormItemConfig.nameDataIndex != ''>
+          <#assign umselectConfig = umselectConfig + ':nameDataIndex="${c.genTableColumnFormItemConfig.nameDataIndex}" ' />
+        </#if>
+        <#assign selectDsf='' />
+        <#if c.selectDsf??>
+          <#assign selectDsf=c.selectDsf?replace("’","'") />
+        </#if>
+        <#if c.genTableColumnFormItemConfig.filterData != ''>
+          <#assign umselectfilterData = ':filterData="${c.genTableColumnFormItemConfig.filterData}" ' />
+        </#if>
+        <#if c.genTableColumnFormItemConfig.filterData == '' && selectDsf != ''>
+          <#assign umselectfilterData = ':filterData="[${selectDsf}]" ' />
+        </#if>
+      </#if>
+      <#if c.showType == "input" || c.showType == "sortInput">
+      <a-col :span="${span}">
+        <a-form-item name="${c.name}" label="${c.comments}" ${rules}>
+          <u-input<#if c.validateType == 'number'> type="number"<#elseif c.validateType == 'digits'> type="digits"</#if> :disabled="${disabled}" defaultValue="${c.defaultValue}" v-model:value="formModel.${c.name}" placeholder="<#if c.genTableColumnFormItemConfig.placeholder = ''>${messageStart}${c.comments}<#else>${c.genTableColumnFormItemConfig.placeholder}</#if>" <#if c.maxLength != '' && c.validateType != 'number' && c.validateType != 'digits'>:maxlength="${c.maxLength}"</#if> <#if c.genTableColumnFormItemConfig.min != ''>:min="${c.genTableColumnFormItemConfig.min}" </#if><#if c.genTableColumnFormItemConfig.max != ''>:max="${c.genTableColumnFormItemConfig.max}" </#if>/>
+        </a-form-item>
+      </a-col>
+      <#elseif c.showType == "textarea">
+      <a-col :span="${span}">
+        <a-form-item name="${c.name}" label="${c.comments}" ${rules}>
+          <u-input :disabled="${disabled}" :textarea="true" defaultValue="${c.defaultValue}" v-model:value="formModel.${c.name}" placeholder="<#if c.genTableColumnFormItemConfig.placeholder = ''>${messageStart}${c.comments}<#else>${c.genTableColumnFormItemConfig.placeholder}</#if>" <#if c.maxLength != ''>:maxlength="${c.maxLength}"</#if>/>
+        </a-form-item>
+      </a-col>
+      <#elseif c.showType == "select">
+      <#if c.selectSimple?? && c.selectSimple == '0'>
+      <a-col :span="${span}">
+        <a-form-item name="${c.name}" label="${c.comments}" ${rules}>
+          <u-select :disabled="${disabled}" form-type="select" defaultValue="${c.defaultValue}" v-model:value="formModel.${c.name}" type="table" dict-type="${c.tableName}" valueField="${c.selectValuefield}" textField="${c.searchKey}" tableOrderBy="${c.selectOrder}"
+                    :tableFilterData="<#if c.genTableColumnFormItemConfig.tableFilterData = ''>[${c.selectDsf}]<#else>${c.genTableColumnFormItemConfig.tableFilterData}</#if>"<#if c.genTableColumnFormItemConfig.formatFuncStr != ''> formatFuncStr="${c.genTableColumnFormItemConfig.formatFuncStr}"</#if> placeholder="${messageStart}${c.comments}"/>
+        </a-form-item>
+      </a-col>
+        <#else>
+      <a-col :span="${span}">
+        <a-form-item name="${c.name}" label="${c.comments}" ${rules}>
+          <u-select :disabled="${disabled}" form-type="select" defaultValue="${c.defaultValue}" v-model:value="formModel.${c.name}" dict-type="${c.dictType}" placeholder="${messageStart}${c.comments}"/>
+        </a-form-item>
+      </a-col>
+      </#if>
+        <#elseif c.showType == "selectAutoSearch">
+      <a-col :span="${span}">
+        <a-form-item name="${c.name}" label="${c.comments}" ${rules}>
+          <u-select :disabled="${disabled}" form-type="selectAutoSearch" defaultValue="${c.defaultValue}" v-model:value="formModel.${c.name}" tableName="${c.tableName}" searchKey="${c.searchKey}" searchJavaField="${c.searchJavaField}" javaField="${c.javaField}" placeholder="${messageStart}${c.comments}" />
+        </a-form-item>
+      </a-col>
+    <#elseif c.showType == "selectLocation">
+      <a-col :span="${span}">
+        <a-form-item name="${c.name}" label="${c.comments}" ${rules}>
+          <u-select :disabled="${disabled}" form-type="selectLocation" defaultValue="${c.defaultValue}" v-model:value="formModel.${c.name}" dict-type="${c.dictType}" placeholder="${messageStart}${c.comments}" />
+        </a-form-item>
+      </a-col>
+    <#elseif c.showType == "checkbox">
+      <a-col :span="${span}">
+        <a-form-item name="${c.name}" label="${c.comments}" ${rules}>
+          <u-select :disabled="${disabled}" :multiple="true" form-type="checkbox" defaultValue="${c.defaultValue}" v-model:value="formModel.${c.name}" dict-type="${c.dictType}" placeholder="${messageStart}${c.comments}" />
+        </a-form-item>
+      </a-col>
+    <#elseif c.showType == "radiobox">
+      <a-col :span="${span}">
+        <a-form-item name="${c.name}" label="${c.comments}" ${rules}>
+          <u-select :disabled="${disabled}" form-type="radio" defaultValue="${c.defaultValue}" v-model:value="formModel.${c.name}" dict-type="${c.dictType}" placeholder="${messageStart}${c.comments}" />
+        </a-form-item>
+      </a-col>
+    <#elseif c.showType == "dateselect">
+      <#assign mvalue='' />
+      <#if c.genTableColumnFormItemConfig.maxValue != ''>
+        <#assign mvalue = '${c.genTableColumnFormItemConfig.maxValue} ' />
+      </#if>
+      <#if c.genTableColumnFormItemConfig.minValue != ''>
+        <#assign mvalue = mvalue + '${c.genTableColumnFormItemConfig.minValue} ' />
+      </#if>
+      <a-col :span="${span}">
+        <a-form-item name="${c.name}" label="${c.comments}" ${rules}>
+          <u-date :disabled="${disabled}" defaultValue="${c.defaultValue}" v-model:value="formModel.${c.name}" formatPatter="${c.dateType}" ${mvalue}placeholder="${messageStart}${c.comments}"/>
+        </a-form-item>
+      </a-col>
+      <#elseif c.showType == "areaselect">
+      <a-col :span="${span}">
+        <a-form-item name="${c.name}" label="${c.comments}" ${rules}>
+          <u-area :disabled="${disabled}" defaultValue="${c.defaultValue}" v-model:value="formModel.${c.name}" ${uareaConfig}placeholder="${messageStart}${c.comments}"/>
+        </a-form-item>
+      </a-col>
+      <#elseif c.showType == "fileupload">
+      <a-col :span="${span}">
+        <a-form-item name="${c.name}" label="${c.comments}" ${rules}>
+          <u-upload :disabled="${disabled}" v-model:value="formModel.${c.name}" ${uuploadConfig}/>
+        </a-form-item>
+      </a-col>
+      <#elseif c.showType == "fileuploadsec">
+      <a-col :span="${span}">
+        <a-form-item name="${c.name}" label="${c.comments}" ${rules}>
+          <u-upload :sec="true" :disabled="${disabled}" v-model:value="formModel.${c.name}" ${uuploadConfig}/>
+        </a-form-item>
+      </a-col>
+      <#elseif c.showType == "fileuploadpic">
+      <a-col :span="${span}">
+        <a-form-item name="${c.name}" label="${c.comments}" ${rules}>
+          <u-upload :picture="true" :disabled="${disabled}" v-model:value="formModel.${c.name}" ${uuploadConfig}/>
+        </a-form-item>
+      </a-col>
+      <#elseif c.showType == "fileuploadonline">
+      <a-col :span="${span}">
+        <a-form-item name="${c.name}" label="${c.comments}" ${rules}>
+          <u-upload :online="true" :disabled="${disabled}" v-model:value="formModel.${c.name}" ${uuploadConfig}/>
+        </a-form-item>
+      </a-col>
+      <#elseif c.showType == "treeselect">
+      <a-col :span="${span}">
+        <a-form-item name="${c.name}" label="${c.comments}" ${rules}>
+          <u-tree-select :disabled="${disabled}" defaultValue="${c.defaultValue}" v-model:value="formModel.${c.name}" placeholder="${messageStart}${c.comments}"
+          :props="{actionUrl:'/dynamic/zform/treeData?parentId=0&traceFlag=1&formNo=${c.tableName}',sync:'false',check:'false',chooseParent:'true'}" />
+        </a-form-item>
+      </a-col>
+      <#elseif c.showType == "gridselect">
+      <a-col :span="${span}">
+        <a-form-item name="${c.name}" label="${c.comments}" ${rules}>
+          <#assign selectDsf='' />
+          <#if c.selectDsf??>
+            <#assign selectDsf=c.selectDsf?replace("’","'") />
+          </#if>
+          <u-modal-select formNo="${c.tableName}"
+                          <#if c.genTableColumnFormItemConfig.searchKey != ''>
+                          :searchKey="${c.genTableColumnFormItemConfig.searchKey}"
+                          <#else>
+                          searchKey="${c.searchKey}
+                          </#if>
+                          <#if c.genTableColumnFormItemConfig.searchLabel != ''>
+                          :searchLabel="${c.genTableColumnFormItemConfig.searchLabel}"
+                          <#else>
+                          searchLabel="${c.searchLabel}
+                          </#if>
+                          <#if c.genTableColumnFormItemConfig.columnsList?has_content>
+                          :columns="[
+                          <#list c.genTableColumnFormItemConfig.columnsList as col>
+                           ${col},
+                          </#list>
+                          ]"
+                          <#else>
+                          :columns="[
+                          <#list c.fieldLabels?split(",") as fieldLabel>
+                          {title: '${fieldLabel}', dataIndex:'<#list c.fieldKeys?split(",") as fieldKey><#if fieldLabel_index == fieldKey_index>${fieldKey}</#if></#list>',align: 'left'},
+                          </#list>
+                          ]"
+                          </#if>
+                          ${umselectConfig}
+                          <#if umselectfilterData != ''>${umselectfilterData}</#if>
+                          <#if umselectsearchConfig != ''>${umselectsearchConfig}</#if>
+                          <#if umselectformUpdateMap != ''>${umselectformUpdateMap}</#if>
+                          v-model:formModel="formModel"
+                          :disabled="${disabled}" defaultValue="${c.defaultValue}" v-model:value="formModel.${c.name}" placeholder="${messageStart}${c.comments}"/>
+        </a-form-item>
+      </a-col>
+      <#elseif c.showType == "treeselectRedio">
+      <a-col :span="${span}">
+        <a-form-item name="${c.name}" label="${c.comments}" ${rules}>
+          <u-user-select :disabled="${disabled}" defaultValue="${c.defaultValue}" v-model:value="formModel.${c.name}" ${uuserConfig}placeholder="${messageStart}${c.comments}"/>
+        </a-form-item>
+      </a-col>
+      <#elseif c.showType == "treeselectCheck">
+      <a-col :span="${span}">
+        <a-form-item name="${c.name}" label="${c.comments}" ${rules}>
+          <u-users-select :disabled="${disabled}" defaultValue="${c.defaultValue}" v-model:value="formModel.${c.name}" ${uuserConfig}placeholder="${messageStart}${c.comments}"/>
+        </a-form-item>
+      </a-col>
+      <#elseif c.showType == "officeselectTree">
+      <a-col :span="${span}">
+        <a-form-item name="${c.name}" label="${c.comments}" ${rules}>
+          <u-office-select :disabled="${disabled}" defaultValue="${c.defaultValue}" v-model:value="formModel.${c.name}" placeholder="${messageStart}${c.comments}"/>
+        </a-form-item>
+      </a-col>
+      <#elseif c.showType == "parentId">
+      <a-col :span="${span}">
+        <a-form-item name="parent" label="${c.comments}" :validateFirst="true">
+          <u-tree-select formNo="<#if table.tableType?? && table.tableType == "4">${table.parentTable}<#else>${table.name}</#if>" :disabled="${disabled}" defaultValue="${c.defaultValue}" v-model:value="formModel.parent" placeholder="${messageStart}${c.comments}"/>
+        </a-form-item>
+      </a-col>
+        <#elseif c.showType == "gridtabs">
+      选择${c.comments}
+      <#elseif c.showType == "iconselect">
+      <a-col :span="${span}">
+        <a-form-item name="${c.name}" label="${c.comments}" :validateFirst="true" ${rules}>
+          <u-icon-select :disabled="${disabled}" defaultValue="${c.defaultValue}" v-model:value="formModel.${c.name}" placeholder="${messageStart}${c.comments}"/>
+        </a-form-item>
+      </a-col>
+      <#elseif c.showType == "switch">
+      <a-col :span="${span}">
+        <a-form-item name="${c.name}" label="${c.comments}" ${rules}>
+          <u-switch :disabled="${disabled}" defaultValue="${c.defaultValue}" v-model:value="formModel.${c.name}"/>
+        </a-form-item>
+      </a-col>
+      <#elseif c.showType == "summernote" || c.showType == "richText">
+      <a-col :span="${span}">
+        <a-form-item name="${c.name}" label="${c.comments}" :validateFirst="true" ${rules}>
+          <u-tinymce :disabled="${disabled}" defaultValue="${c.defaultValue}" v-model:value="formModel.${c.name}"/>
+        </a-form-item>
+      </a-col>
+      <#elseif c.showType == "serialNo">
+      <a-col :span="${span}">
+        <a-form-item name="${c.name}" label="${c.comments}" ${rules}>
+          <u-serial-no :disabled="${disabled}" defaultValue="${c.defaultValue}" v-model:value="formModel.${c.name}" <#if (c.genTableColumnFormItemConfig.prefix)?? && c.genTableColumnFormItemConfig.prefix != ''>prefix="${c.genTableColumnFormItemConfig.prefix}" </#if>placeholder="<#if c.genTableColumnFormItemConfig.placeholder = ''>${messageStart}${c.comments}<#else>${c.genTableColumnFormItemConfig.placeholder}</#if>"/>
+        </a-form-item>
+      </a-col>
+      </#if>
+  </#if>
+</#list>
+<#list table.extRuleManyToMany as m>
+      <a-col :span="24">
+        <a-form-item name="${m.name}" label="${m.label}" :validateFirst="true" :rules="[{ required: ${m.required}, message: '请选择${m.label}' }]">
+          <u-modal-multi-select formNo="${m.formNo}"
+                                <#if m.genTableColumnFormItemConfig.modalTitle?? && m.genTableColumnFormItemConfig.modalTitle != ''>
+                                modalTitle="${m.genTableColumnFormItemConfig.modalTitle}"
+                                </#if>
+                                :modalWidth="${m.genTableColumnFormItemConfig.modalWidth}"
+                                <#if m.genTableColumnFormItemConfig.targetFilterData?? && m.genTableColumnFormItemConfig.targetFilterData != ''>
+                                :targetFilterData="${m.genTableColumnFormItemConfig.targetFilterData}"
+                                </#if>
+                                <#if m.genTableColumnFormItemConfig.filterData?? && m.genTableColumnFormItemConfig.filterData != ''>
+                                :filterData="${m.genTableColumnFormItemConfig.filterData}"
+                                </#if>
+                                <#if m.genTableColumnFormItemConfig.searchLabelWidth?? && m.genTableColumnFormItemConfig.searchLabelWidth != ''>
+                                :searchLabelWidth="${m.genTableColumnFormItemConfig.searchLabelWidth}"
+                                </#if>
+                                <#if m.genTableColumnFormItemConfig.searchConfig?? && m.genTableColumnFormItemConfig.searchConfig != ''>
+                                :searchConfig="${m.genTableColumnFormItemConfig.searchConfig}"
+                                </#if>
+                                <#if m.genTableColumnFormItemConfig.searchKey != ''>
+                                :searchKey="${m.genTableColumnFormItemConfig.searchKey}"
+                                <#else>
+                                searchKey="${m.searchKey}
+                                </#if>
+                                <#if m.genTableColumnFormItemConfig.searchLabel != ''>
+                                :searchLabel="${m.genTableColumnFormItemConfig.searchLabel}"
+                                <#else>
+                                searchLabel="${m.searchLabel}
+                                </#if>
+                                <#if m.genTableColumnFormItemConfig.columnsList?has_content>
+                                :columns="[
+                                  <#list m.genTableColumnFormItemConfig.columnsList as col>
+                                  ${col},
+                                  </#list>
+                                ]"
+                                <#else>
+                                :columns="[
+                                  {title: '${m.codeFiledTitle}', dataIndex:'${m.codeFiled}',align: '${m.codeFiledAlign}'},
+                                  {title: '${m.nameFiledTitle}', dataIndex:'${m.nameFiled}',align: '${m.nameFiledAlign}'},
+                                ]"
+                                </#if>
+                                codeFiled="${m.codeFiled}"
+                                nameFiled="${m.nameFiled}"
+                                :format="item=>{
+                                  if (item.code) { return `${'$'}{item.name} （${'$'}{item.code}）` } return item.name
+                                }"
+                                :disabled="disabled" v-model:value="formModel.${m.name}"
+                                placeholder="请选择${m.label}"/>
+        </a-form-item>
+      </a-col>
+</#list>
+    </a-row>
+  </u-form>
+</template>
+
+<script>
+export default {
+  name: "${table.name}_form",
+}
+</script>
+<script setup>
+
+import {ref} from "vue";
+<#list table.childList as subTable>
+import ${subTable.name?replace(".","_","i")}_list from "@/views/${subTable.module}/${subTable.name}/list";
+</#list>
+<#if uniqueFlag != "">
+import {uniqueValidator} from "@/lib/validator";
+</#if>
+<#if customValidator == "1" >
+import * as validator from "@/lib/validator"
+let customValidator = ref(validator)
+</#if>
+let formModel = ref({})
+let disabled = ref(false)
+<#if hasChildren>
+let subTables = ref([
+<#list table.childList as subTable>
+  {title: '${subTable.comments}', component: ${subTable.name?replace(".","_","i")}_list},
+</#list>
+])
+</#if>
+
+</script>
+<style scoped>
+</style>
+</#if>
+  ]]></content>
+</template>

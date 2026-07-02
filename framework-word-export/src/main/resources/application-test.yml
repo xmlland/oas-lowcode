@@ -1,0 +1,9 @@
+server:
+  port: 6008
+  servlet:
+    context-path: /word-export
+  max-http-header-size: 200MB
+  tomcat:
+    max-http-form-post-size: 0
+
+templatePath: /data/openjee/test2/wordTemplate

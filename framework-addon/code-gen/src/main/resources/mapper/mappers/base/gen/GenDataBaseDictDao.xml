@@ -1,0 +1,250 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jeestudio.bpm.mapper.base.gen.GenDataBaseDictDao">
+
+	<select id="findTableList" resultType="GenTable">
+		<if test="dbName == 'oracle' || dbName == 'dm' || dbName == 'kingbase'">
+			SELECT
+			t.TABLE_NAME AS "name",
+			c.COMMENTS AS "comments"
+			FROM user_tables t, user_tab_comments c
+			WHERE t.table_name = c.table_name
+			<if test="name != null and name != ''">
+				AND t.TABLE_NAME = upper(#{name})
+			</if>
+			ORDER BY t.TABLE_NAME
+		</if>
+		<if test="dbName == 'gbase'">
+			SELECT
+			t.tabname AS "name",
+			c.COMMENTS AS "comments"
+			FROM systables t, syscomms c
+			WHERE t.tabid = c.tabid
+			<if test="name != null and name != ''">
+				AND t.tabname = upper(#{name})
+			</if>
+			ORDER BY t.tabname
+		</if>
+		<if test="dbName == 'mysql'">
+			SELECT t.table_name AS "name",t.TABLE_COMMENT AS "comments"
+			FROM information_schema.`TABLES` t
+			WHERE t.TABLE_SCHEMA = (select database())
+			<if test="name != null and name != ''">
+				AND t.TABLE_NAME = upper(#{name})
+			</if>
+			ORDER BY t.TABLE_NAME
+		</if>
+		<if test="dbName == 'postgresql' || dbName == 'gaussdb'  ">
+			SELECT t.tablename AS "name",
+			d.description AS "comments"
+			FROM pg_catalog.pg_tables t
+			LEFT JOIN pg_catalog.pg_description d ON (t.tablename::regclass = d.objoid AND d.objsubid = 0)
+			WHERE t.schemaname = current_schema()
+			<if test="name != null and name != ''">
+				AND lower(t.tablename) = lower(#{name})
+			</if>
+			ORDER BY t.tablename;
+		</if>
+		<if test="dbName == 'mssql'">
+			SELECT tbs.name AS "name",
+			ds.value AS "comments"
+			FROM sys.extended_properties ds
+			LEFT JOIN sysobjects tbs ON ds.major_id=tbs.id
+			WHERE  ds.minor_id=0
+			<if test="name != null and name != ''">
+				AND tbs.name = upper(#{name})
+			</if>
+			ORDER BY tbs.name
+		</if>
+	</select>
+
+	<select id="findTableListSchema" resultType="GenTable">
+		<if test="dbName == 'oracle' || dbName == 'dm' || dbName == 'kingbase'">
+			SELECT
+			t.TABLE_NAME AS "name",
+			c.COMMENTS AS "comments"
+			FROM dba_tables t, dba_tab_comments c
+			WHERE t.table_name = upper(c.table_name)
+			<if test="nameWithoutSchema != null and nameWithoutSchema != ''">
+				AND t.TABLE_NAME = upper(#{nameWithoutSchema})
+			</if>
+			ORDER BY t.TABLE_NAME
+		</if>
+		<if test="dbName == 'mysql'">
+			SELECT t.table_name AS "name",t.TABLE_COMMENT AS "comments"
+			FROM information_schema.`TABLES` t
+			WHERE t.TABLE_SCHEMA = (select database())
+			<if test="name != null and name != ''">
+				AND t.TABLE_NAME = upper(#{name})
+			</if>
+			ORDER BY t.TABLE_NAME
+		</if>
+		<if test="dbName == 'mssql'">
+			SELECT tbs.name AS "name",
+			ds.value AS "comments"
+			FROM sys.extended_properties ds
+			LEFT JOIN sysobjects tbs ON ds.major_id=tbs.id
+			WHERE  ds.minor_id=0
+			<if test="name != null and name != ''">
+				AND tbs.name = upper(#{name})
+			</if>
+			ORDER BY tbs.name
+		</if>
+	</select>
+
+	<select id="findTableColumnList" resultType="GenTableColumn">
+		<if test="dbName == 'oracle' || dbName == 'dm' || dbName == 'kingbase'">
+			SELECT
+			t.COLUMN_NAME AS "name",
+			(CASE WHEN t.NULLABLE = 'Y' THEN '1' ELSE '0' END) AS "isNull",
+			(t.COLUMN_ID * 1) AS "formSort",
+			'1' AS "isEdit",
+			(t.COLUMN_ID * 10) AS "sort",
+			c.COMMENTS AS "comments",
+			decode(t.DATA_TYPE,'DATE',t.DATA_TYPE || '(' || t.DATA_LENGTH || ')',
+			'VARCHAR2', t.DATA_TYPE || '(' || t.DATA_LENGTH || ')',
+			'VARCHAR', t.DATA_TYPE || '(' || t.DATA_LENGTH || ')',
+			'NVARCHAR2', t.DATA_TYPE || '(' || t.DATA_LENGTH/2 || ')',
+			'CHAR', t.DATA_TYPE || '(' || t.DATA_LENGTH || ')',
+			'NUMBER',t.DATA_TYPE || (nvl2(t.DATA_PRECISION,nvl2(decode(t.DATA_SCALE,0,null,t.DATA_SCALE),
+			'(' || t.DATA_PRECISION || ',' || t.DATA_SCALE || ')',
+			'(' || t.DATA_PRECISION || ')'),'(18)')),t.DATA_TYPE) AS "jdbcType"
+			<if test="schema == ''">
+				FROM user_tab_columns t, user_col_comments c
+			</if>
+			<if test="schema != ''">
+				FROM dba_tab_columns t, dba_col_comments c
+			</if>
+			WHERE t.TABLE_NAME = c.table_name
+			AND t.COLUMN_NAME = upper(c.column_name)
+			<if test="nameWithoutSchema != null and nameWithoutSchema != ''">
+				AND t.TABLE_NAME = upper(#{nameWithoutSchema})
+			</if>
+			ORDER BY t.COLUMN_ID
+		</if>
+		<if test="dbName == 'gbase'">
+			select c.colname      AS "name",
+			CASE
+			WHEN c.coltype  <![CDATA[ < ]]> 256
+			THEN '1'
+			ELSE '0'
+			END        AS "isNull",
+			(c.colno * 1)  AS "formSort",
+			'1'            AS "isEdit",
+			(c.colno * 10) AS "sort",
+			c1.COMMENTS    AS "comments",
+			case
+			WHEN coltype = 2
+			THEN 'integer'
+			WHEN coltype = 3
+			THEN 'double'
+			WHEN coltype = 10
+			THEN 'datetime'
+			WHEN coltype = 12
+			THEN 'longtext'
+			WHEN coltype in (269, 13)
+			THEN 'varchar(' || TRIM(CAST(c.collength AS CHAR(50))) || ')' end  AS "jdbcType"
+
+			from systables t,
+			syscolumns c,
+			syscolcomms c1
+
+			WHERE t.tabid = c.tabid
+			and c1.tabid = c.tabid
+			and c1.colno = c.colno
+			<if test="nameWithoutSchema != null and nameWithoutSchema != ''">
+				AND t.tabname = lower(#{nameWithoutSchema})
+			</if>
+			ORDER BY c.colno
+		</if>
+		<if test="dbName == 'mysql'">
+			SELECT t.COLUMN_NAME AS "name", (CASE WHEN t.IS_NULLABLE = 'YES' THEN '1' ELSE '0' END) AS "isNull",
+			(t.ORDINAL_POSITION * 1) AS "formSort",'1' AS "isEdit",
+			(t.ORDINAL_POSITION * 10) AS "sort",t.COLUMN_COMMENT AS "comments",t.COLUMN_TYPE AS "jdbcType"
+			FROM information_schema.`COLUMNS` t
+			WHERE t.TABLE_SCHEMA = (select database())
+			<if test="name != null and name != ''">
+				AND t.TABLE_NAME = upper(#{name})
+			</if>
+			ORDER BY t.ORDINAL_POSITION
+		</if>
+		<if test="dbName == 'postgresql' || dbName == 'gaussdb'">
+			SELECT t.column_name AS "name",
+			(CASE WHEN t.is_nullable = 'YES' THEN '1' ELSE '0' END) AS "isNull",
+			(t.ordinal_position * 1) AS "formSort",
+			'1' AS "isEdit",
+			(t.ordinal_position * 10) AS "sort",
+			pgd.description AS "comments",
+			case when character_maximum_length is not null then
+			concat(t.udt_name,'(',character_maximum_length,')')
+			else  t.udt_name end AS "jdbcType"
+			FROM information_schema.columns t
+			LEFT JOIN pg_catalog.pg_statio_all_tables st ON t.table_schema = st.schemaname AND t.table_name = st.relname
+			LEFT JOIN pg_catalog.pg_description pgd ON pgd.objoid = st.relid AND pgd.objsubid = t.ordinal_position
+			<if test='name.indexOf(".") != -1'>
+				<bind name="schemaName" value='name.substring(0, name.indexOf("."))' />
+				<bind name="tableName" value='name.substring(name.indexOf(".") + 1)' />
+				WHERE t.table_schema = #{schemaName}
+				AND t.table_name = #{tableName}
+			</if>
+			<if test='name.indexOf(".") == -1'>
+				WHERE t.table_schema = current_schema()
+				AND t.table_name = #{name}
+			</if>
+			ORDER BY t.ordinal_position;
+		</if>
+		<if test="dbName == 'mssql' || dbName == 'sqlserver'">
+			SELECT [name] = [Columns].name ,
+			[isNull] = [Columns].is_nullable ,
+			[formSort] = [Columns].column_id * 1,
+			[isEdit] = '1',
+			[sort] = [Columns].column_id * 10,
+			[comments] = [Properties].value,
+			[jdbcType] = case when  [Types].name = 'nvarchar' then 'nvarchar('+cast(Columns.max_length/2 as nvarchar)+')' else [Types].name end
+			FROM sys.tables AS [Tables]
+			INNER JOIN sys.columns AS [Columns] ON [Tables].object_id = [Columns].object_id
+			INNER JOIN sys.types AS [Types] ON [Columns].system_type_id = [Types].system_type_id
+			AND is_user_defined = 0
+			AND [Types].name &lt;&gt; 'sysname'
+			LEFT OUTER JOIN sys.extended_properties AS [Properties] ON [Properties].major_id = [Tables].object_id
+			AND [Properties].minor_id = [Columns].column_id
+			AND [Properties].name = 'MS_Description'
+			WHERE  1=1
+			<if test="nameWithoutSchema != null and nameWithoutSchema != ''">
+				AND [Tables].name = upper(#{nameWithoutSchema})
+			</if>
+			ORDER BY [Columns].column_id
+		</if>
+	</select>
+
+	<select id="findTablePK" resultType="string">
+		<if test="dbName == 'oracle' || dbName == 'dm' || dbName == 'kingbase'">
+			SELECT lower(cu.COLUMN_NAME) AS "columnName"
+			<if test="schema == ''">
+				FROM user_cons_columns cu, user_constraints au
+			</if>
+			<if test="schema != ''">
+				FROM dba_cons_columns cu, dba_constraints au
+			</if>
+			WHERE upper(cu.constraint_name) = au.constraint_name
+			AND au.constraint_type = 'P'
+			AND au.table_name = upper(#{nameWithoutSchema})
+		</if>
+		<if test="dbName == 'mysql'">
+			SELECT lower(au.COLUMN_NAME) AS columnName
+			FROM information_schema.`COLUMNS` au
+			WHERE au.TABLE_SCHEMA = (select database())
+			AND au.COLUMN_KEY='PRI' AND au.TABLE_NAME = upper(#{name})
+		</if>
+		<if test="dbName == 'mssql'">
+			SELECT syscolumns.name AS "columnName"
+			FROM sysobjects INNER JOIN sysconstraints
+			ON  sysobjects.xtype in('PK') AND
+			sysobjects.id = sysconstraints.constid
+			inner JOIN syscolumns ON sysconstraints.id = syscolumns.id
+			WHERE syscolumns.typestat=3
+			AND  OBJECT_NAME(sysobjects.parent_obj) = upper(#{nameWithoutSchema})
+		</if>
+	</select>
+
+</mapper>

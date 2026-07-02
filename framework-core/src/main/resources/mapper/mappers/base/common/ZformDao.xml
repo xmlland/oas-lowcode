@@ -1,0 +1,399 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jeestudio.bpm.mapper.base.common.ZformDao">
+
+    <!-- 动态主键字段名，兼容旧代码（默认为id） -->
+    <sql id="pkColumnName">
+        <choose>
+            <when test="sqlMap != null and sqlMap.pkColumnName != null and sqlMap.pkColumnName != ''">${sqlMap.pkColumnName}</when>
+            <otherwise>id</otherwise>
+        </choose>
+    </sql>
+
+    <select id="get" resultType="Zform" >
+        SELECT
+            ${sqlMap.sqlColumns}
+        FROM ${tableOrViewName} a
+            ${sqlMap.sqlJoins}
+        WHERE a.<include refid="pkColumnName"/> = #{id}
+    </select>
+    <select id="getList" resultType="Zform" >
+        SELECT
+            ${sqlMap.sqlColumns}
+        FROM ${tableOrViewName} a
+            ${sqlMap.sqlJoins}
+        WHERE a.<include refid="pkColumnName"/> = #{id}
+    </select>
+
+    <select id="getMap" resultType="java.util.LinkedHashMap" >
+        SELECT
+            ${sqlMap.sqlColumnsFriendly}
+        FROM ${tableOrViewName} a
+            ${sqlMap.sqlJoins}
+        WHERE a.<include refid="pkColumnName"/> = #{id}
+    </select>
+
+    <select id="getMapList" resultType="java.util.LinkedHashMap" >
+        SELECT
+            ${sqlMap.sqlColumnsFriendly}
+        FROM ${tableOrViewName} a
+            ${sqlMap.sqlJoins}
+        WHERE a.<include refid="pkColumnName"/> = #{id}
+    </select>
+
+    <resultMap type="Zform" id="zformResult" autoMapping="true">
+    </resultMap>
+    <select id="findPageList" resultMap="zformResult">
+        SELECT
+        ${sqlMap.sqlColumns}
+        FROM ${sqlMap.tableOrViewName} a
+        ${sqlMap.sqlJoins}
+        <where>
+            a.del_flag = #{entity.DEL_FLAG_NORMAL}
+            ${sqlMap.dsf}
+        </where>
+        <choose>
+            <when test="sqlMap !=null and sqlMap.orderBy != null and sqlMap.orderBy != ''">
+                ORDER BY ${sqlMap.orderBy}
+            </when>
+            <otherwise>
+                ORDER BY a.update_date DESC
+            </otherwise>
+        </choose>
+    </select>
+
+    <select id="findList" resultMap="zformResult">
+        SELECT
+        ${sqlMap.sqlColumns}
+        FROM ${tableOrViewName} a
+        ${sqlMap.sqlJoins}
+        <where>
+            a.del_flag = #{DEL_FLAG_NORMAL}
+            ${sqlMap.dsf}
+        </where>
+        <choose>
+            <when test="page !=null and page.orderBy != null and page.orderBy != ''">
+                ORDER BY ${page.orderBy}
+            </when>
+            <otherwise>
+                ORDER BY a.update_date DESC
+            </otherwise>
+        </choose>
+    </select>
+
+    <select id="findListMap" resultType="java.util.LinkedHashMap">
+        SELECT
+        ${sqlMap.sqlColumnsFriendly}
+        FROM ${tableOrViewName} a
+        ${sqlMap.sqlJoins}
+
+
+            ${ew.customSqlSegment}
+
+        <choose>
+            <when test="sqlMap.orderBy !=null and sqlMap.orderBy != null and sqlMap.orderBy != '' and !sqlMap.orderBy.startsWith('group by') and !sqlMap.orderBy.startsWith('GROUP BY')">
+                ORDER BY ${sqlMap.orderBy}
+            </when>
+            <when test="sqlMap.orderBy !=null and sqlMap.orderBy != null and sqlMap.orderBy != '' and (sqlMap.orderBy.startsWith('group by') or sqlMap.orderBy.startsWith('GROUP BY'))">
+                ${sqlMap.orderBy}
+            </when>
+            <otherwise>
+                ORDER BY a.update_date DESC
+            </otherwise>
+        </choose>
+    </select>
+
+    <select id="findListMapWith" resultType="java.util.LinkedHashMap">
+        WITH ${tableOrViewName}View AS
+            (
+                SELECT
+                ${sqlMap.sqlColumnsFriendly}
+                FROM ${tableOrViewName} a
+                ${sqlMap.sqlJoins}
+            )
+        SELECT a.* FROM ${tableOrViewName}View a
+        ${ew.customSqlSegment}
+        <choose>
+            <when test="sqlMap.orderBy !=null and sqlMap.orderBy != null and sqlMap.orderBy != '' and !sqlMap.orderBy.startsWith('group by') and !sqlMap.orderBy.startsWith('GROUP BY')">
+                ORDER BY ${sqlMap.orderBy}
+            </when>
+            <when test="sqlMap.orderBy !=null and sqlMap.orderBy != null and sqlMap.orderBy != '' and (sqlMap.orderBy.startsWith('group by') or sqlMap.orderBy.startsWith('GROUP BY'))">
+                ${sqlMap.orderBy}
+            </when>
+            <otherwise>
+            </otherwise>
+        </choose>
+    </select>
+
+    <select id="hasChildren" resultType="Boolean">
+        select case when exists(select 1 from ${tableOrViewName} where parent_id = #{id}) then 1 else 0 end from sys_dual
+    </select>
+
+    <select id="findListCount" resultType="Zform">
+        SELECT
+        a.<include refid="pkColumnName"/> AS "id"
+        FROM ${tableOrViewName} a
+        ${sqlMap.sqlJoins}
+        <where>
+            a.del_flag = #{DEL_FLAG_NORMAL}
+            ${sqlMap.dsf}
+        </where>
+    </select>
+
+    <select id="findAllList" resultType="Zform" >
+        SELECT
+        ${sqlMap.sqlColumns}
+        FROM ${tableOrViewName} a
+        ${sqlMap.sqlJoins}
+        <where>
+            a.del_flag = #{DEL_FLAG_NORMAL}
+        </where>
+        <choose>
+            <when test="page !=null and page.orderBy != null and page.orderBy != ''">
+                ORDER BY ${page.orderBy}
+            </when>
+            <otherwise>
+                ORDER BY a.update_date DESC
+            </otherwise>
+        </choose>
+    </select>
+
+    <insert id="insert">
+        INSERT INTO ${tableOrViewName}
+            ${sqlMap.sqlInsert}
+    </insert>
+
+    <insert id="batchInsert">
+        INSERT INTO ${sqlMap.tableOrViewName}
+            ${sqlMap.sqlInsertColumn}
+        <foreach collection="list"  item="o" separator=",">
+            ${sqlMap.sqlInsertValues}
+        </foreach>
+    </insert>
+
+    <insert id="insertV">
+        INSERT INTO ${tableOrViewName}_V
+            ${sqlMap.sqlInsertV}
+    </insert>
+
+    <insert id="insertVersionSchema">
+        INSERT INTO ${tableOrViewName}_V
+            ${sqlMap.sqlInsertV}
+    </insert>
+
+    <update id="update">
+        UPDATE ${tableOrViewName} SET
+            ${sqlMap.sqlUpdate}
+        WHERE <include refid="pkColumnName"/> = #{id}
+    </update>
+
+    <!--物理删除-->
+    <update id="delete">
+        DELETE FROM ${tableOrViewName}
+        WHERE <include refid="pkColumnName"/> = #{id}
+    </update>
+
+    <update id="batchDelete">
+        DELETE FROM ${tableOrViewName}
+        WHERE <include refid="pkColumnName"/> in (
+        <foreach collection="list"  item="o" separator=",">
+            #{o.id}
+        </foreach>
+            )
+    </update>
+
+    <!--逻辑删除-->
+    <update id="deleteByLogic">
+        UPDATE ${tableOrViewName} SET
+            del_flag = #{DEL_FLAG_DELETE}
+        WHERE <include refid="pkColumnName"/> = #{id}
+    </update>
+
+    <!-- 根据实体名称和字段名称和字段值获取唯一记录 -->
+    <select id="findUniqueByProperty" resultType="Zform" statementType="PREPARED">
+        SELECT * FROM ${tableOrViewName} WHERE ${propertyName} = #{value}
+    </select>
+
+    <select id="findChildrenForDelete" resultType="Zform">
+        SELECT <include refid="pkColumnName"/> AS "id", parent_id AS "parent.id" FROM ${tableOrViewName} WHERE ${fk} = #{parent.id}
+    </select>
+
+    <select id="findChildrenForDeleteByList" resultType="Zform">
+        SELECT
+        <choose>
+            <when test="zform.sqlMap != null and zform.sqlMap.pkColumnName != null and zform.sqlMap.pkColumnName != ''">${zform.sqlMap.pkColumnName}</when>
+            <otherwise>id</otherwise>
+        </choose> AS "id", parent_id AS "parent.id" FROM ${zform.tableOrViewName} WHERE ${zform.fk} in (
+        <foreach collection="list"  item="id" separator=",">
+            #{id}
+        </foreach>
+        )
+    </select>
+
+
+    <delete id="deleteChildren">
+        DELETE FROM ${tableOrViewName} WHERE ${fk} = #{parent.id}
+    </delete>
+
+    <delete id="deleteChildrenForTree">
+        <bind name="parentIdsLike" value="parentIds + id + ',%'" />
+        DELETE FROM ${tableOrViewName} WHERE parent_ids LIKE #{parentIdsLike}
+    </delete>
+
+    <select id="findListByProc" resultMap="zformResult">
+        SELECT
+        ${sqlMap.sqlColumns}
+        FROM ${tableOrViewName} a
+        ${sqlMap.sqlJoins}
+        <where>
+            a.del_flag = #{DEL_FLAG_NORMAL}
+            ${sqlMap.dsf}
+            AND a.proc_ins_id IN
+            <foreach collection="procInsIdList" index="index" item="procInsId" open="(" separator="," close=")">
+                #{procInsIdList[${index}]}
+            </foreach>
+        </where>
+        <choose>
+            <when test="page !=null and page.orderBy != null and page.orderBy != ''">
+                ORDER BY ${page.orderBy}
+            </when>
+            <otherwise>
+                ORDER BY a.update_date DESC
+            </otherwise>
+        </choose>
+    </select>
+
+    <select id="findListByProcMap" resultType="java.util.LinkedHashMap">
+        SELECT
+        ${sqlMap.sqlColumnsFriendly}
+        FROM ${formNo} a
+        ${sqlMap.sqlJoins}
+        <where>
+            a.del_flag = #{DEL_FLAG_NORMAL}
+            ${sqlMap.dsf}
+            AND a.proc_ins_id IN
+            <foreach collection="procInsIdList" index="index" item="procInsId" open="(" separator="," close=")">
+                #{procInsIdList[${index}]}
+            </foreach>
+        </where>
+        <choose>
+            <when test="page !=null and page.orderBy != null and page.orderBy != ''">
+                ORDER BY ${page.orderBy}
+            </when>
+            <otherwise>
+                ORDER BY a.update_date DESC
+            </otherwise>
+        </choose>
+    </select>
+
+    <select id="findListByProcCount" resultMap="zformResult">
+        SELECT
+        a.<include refid="pkColumnName"/> AS "id"
+        FROM ${formNo} a
+        ${sqlMap.sqlJoins}
+        <where>
+            a.del_flag = #{DEL_FLAG_NORMAL}
+            ${sqlMap.dsf}
+            AND a.proc_ins_id IN
+                (${procInsIdListStr})
+            <!--<foreach collection="procInsIdList" item="procInsId" open="(" separator="," close=")">
+                #{procInsId}
+            </foreach>-->
+        </where>
+    </select>
+
+    <select id="getNameById" resultType="String" >
+        SELECT
+            ${columnName}
+        FROM ${formNo}
+        WHERE <include refid="pkColumnName"/> = #{id}
+    </select>
+
+    <!-- 简化版 getNameById，用于获取主键列名（不需要自定义主键支持） -->
+    <select id="getNameByIdSimple" resultType="String" >
+        SELECT
+            ${columnName}
+        FROM ${formNo}
+        WHERE id = #{id}
+    </select>
+
+    <update id="updateSysMenuIsShowCascade">
+        <bind name="parentIdsLike" value="parentIds + '%'" />
+        UPDATE sys_menu SET
+            is_show = #{isShow}
+        WHERE parent_ids LIKE #{parentIdsLike};
+    </update>
+
+	<select id="findValueList" resultType="java.lang.String">
+		SELECT ${valueColumn}
+		FROM ${formNo}
+		WHERE ${keyColumn} = #{key}
+	</select>
+
+    <insert id="insertSql">
+        ${sql}
+    </insert>
+    <insert id="insertSqlParm">
+        ${sql}
+    </insert>
+    <insert id="insertSqlWarpper">
+        ${sql}
+        ${ew.customSqlSegment == null ? '' : ew.customSqlSegment}
+    </insert>
+    <update id="updateSql">
+        ${sql}
+    </update>
+    <update id="updateSqlParm">
+        ${sql}
+    </update>
+    <update id="updateSqlWarpper">
+        ${sql}
+        ${ew.customSqlSegment == null ? '' : ew.customSqlSegment}
+    </update>
+    <delete id="deleteSql">
+        ${sql}
+    </delete>
+    <delete id="deleteSqlParm">
+        ${sql}
+    </delete>
+    <delete id="deleteSqlWarpper">
+        ${sql}
+        ${ew.customSqlSegment == null ? '' : ew.customSqlSegment}
+    </delete>
+    <select id="findMapBySql" resultType="java.util.LinkedHashMap">
+        ${sql}
+    </select>
+    <select id="findMapBySqlParm" resultType="java.util.LinkedHashMap">
+        ${sql}
+    </select>
+    <select id="findMapList" resultType="java.util.LinkedHashMap">
+        ${querySql}
+        ${ew.customSqlSegment == null ? '' : ew.customSqlSegment}
+    </select>
+    <select id="findStringBySql" resultType="java.lang.String">
+        ${sql}
+    </select>
+    <select id="findStringBySqlParm" resultType="java.lang.String">
+        ${sql}
+    </select>
+    <select id="findStringBySqlWarpper" resultType="java.lang.String">
+        ${sql}
+        ${ew.customSqlSegment == null ? '' : ew.customSqlSegment}
+    </select>
+    <select id="findStringListBySql" resultType="java.lang.String">
+        ${sql}
+    </select>
+    <select id="findStringListBySqlParm" resultType="java.lang.String">
+        ${sql}
+    </select>
+    <select id="findStringListSqlWarpper" resultType="java.lang.String">
+        ${sql}
+        ${ew.customSqlSegment == null ? '' : ew.customSqlSegment}
+    </select>
+    <select id="count" resultType="java.lang.Long">
+       select count(${countColumn})from(
+           ${querySql}
+               ${ew.customSqlSegment == null ? '' : ew.customSqlSegment}
+           )t
+    </select>
+</mapper>

@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jeestudio.bpm.modules.prt.dao.PrtCardMapper">
+
+
+    <select id="listCardByUserRole" resultType="java.util.Map">
+        SELECT DISTINCT A.ID AS "id",
+                        A.create_by AS "create_by",
+                        A.owner_code AS "owner_code",
+                        A.card_title AS "card_title",
+                        A.card_type AS "card_type",
+                        A.card_link AS "card_link",
+                        A.sort AS "sort",
+                        A.is_enable AS "is_enable",
+                        A.detail_link AS "detail_link",
+                        A.detail_type AS "detail_type",
+                        A.col_props AS "col_props",
+                        A.remark_info AS "remark_info",
+                        A.group_name AS "group_name",
+                        '1' as "is_show"
+        FROM
+            prt_card
+                A LEFT JOIN prt_card_role b ON A.ID = b.card_id
+                  LEFT JOIN sys_user_role C ON b.role_id = C.role_id
+        WHERE  ( C.user_id = #{userId} OR b.role_id IS NULL )  AND A.is_enable = '1'
+        ORDER BY
+            A.sort
+    </select>
+    <select id="listCardByUserId" resultType="java.util.Map">
+        SELECT DISTINCT A
+                            .ID AS "id",
+                        A.create_by AS "create_by",
+                        A.owner_code AS "owner_code",
+                        A.card_title AS "card_title",
+                        A.card_type AS "card_type",
+                        A.card_link AS "card_link",
+                        d.sort AS "sort",
+                        A.is_enable AS "is_enable",
+                        A.detail_link AS "detail_link",
+                        A.detail_type AS "detail_type",
+                        A.col_props AS "col_props",
+                        A.remark_info AS "remark_info",
+                        d.is_show as "is_show",
+                        A.group_name as "group_name"
+        FROM
+            prt_card A
+                LEFT JOIN prt_card_user d on a.id = d.card_id
+        WHERE
+            d.user_id = #{userId}    AND A.is_enable = '1'
+        ORDER BY d.sort
+    </select>
+</mapper>
