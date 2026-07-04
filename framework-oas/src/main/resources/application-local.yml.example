@@ -70,7 +70,7 @@ storage:
     enabled: true
     endpoint: http://127.0.0.1:9000
     access-key: minioadmin
-    secret-key: minioadmin
+    secret-key: minioAdmin.!@#
     bucket: main
     thumb-bucket: thumb
     # 前后端同机开发可留空；如前端需要通过网关访问 MinIO，可配置公开访问地址。

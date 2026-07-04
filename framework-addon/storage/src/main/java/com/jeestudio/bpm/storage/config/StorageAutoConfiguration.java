@@ -40,7 +40,7 @@ public class StorageAutoConfiguration {
             throw new IllegalStateException(
                     "MinIO认证凭据未配置！请设置环境变量 MINIO_ACCESS_KEY 和 MINIO_SECRET_KEY");
         }
-        if ("minioadmin".equals(accessKey) || "minioadmin".equals(secretKey)) {
+        if ("minioadmin".equals(accessKey) && "minioadmin".equals(secretKey)) {
             throw new IllegalStateException(
                     "MinIO使用了默认弱凭据 minioadmin/minioadmin，请更换为强随机凭据");
         }
