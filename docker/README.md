@@ -66,7 +66,7 @@ docker compose down -v
 | PostgreSQL 数据库 | `oas` |
 | Redis 密码 | `oas123456` |
 | MinIO 用户 | `minioadmin` |
-| MinIO 密码 | `minioadmin` |
+| MinIO 密码 | `minioAdmin.!@#` |
 
 MinIO 启动后会自动创建 `main` 和 `thumb` 两个 bucket，并设置为可下载。
 
