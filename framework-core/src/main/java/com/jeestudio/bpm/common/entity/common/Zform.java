@@ -3787,6 +3787,9 @@ public class Zform extends ActEntity<Zform> {
     }
 
     public String getTableOrViewName() {
+        if (StringUtils.isNotBlank(tableOrViewName)) {
+            return tableOrViewName;
+        }
         if (StringUtils.isNotBlank(versionSchema)) {
             String tableName = formNo;
             if (tableName.indexOf(".") != -1) {

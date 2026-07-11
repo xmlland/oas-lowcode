@@ -67,10 +67,14 @@ const JAVA_TYPE_BY_TYPE = {
   modalSelect: ZFORM_JAVA_TYPE,
 }
 
+/**
+ * 物理类型必须与 genOptionData.jdbcTypeOptionData 的 value 一致，否则设计器下拉无法回显。
+ * 合法值：varchar / integer / double / decimal / boolean / datetime / time / longblob / longtext
+ */
 const TYPE_DB_CONFIG = {
   text: {jdbcTypeReplace: 'varchar', varcharLength: 255, javaType: 'String', friendlyJdbcType: '文本'},
   textarea: {jdbcTypeReplace: 'varchar', varcharLength: 255, javaType: 'String', friendlyJdbcType: '文本'},
-  integer: {jdbcTypeReplace: 'int', javaType: 'Integer', friendlyJdbcType: '整型'},
+  integer: {jdbcTypeReplace: 'integer', javaType: 'Integer', friendlyJdbcType: '整型'},
   decimal: {jdbcTypeReplace: 'decimal', decimalPrecision: 18, decimalScale: 2, javaType: 'java.math.BigDecimal', friendlyJdbcType: '精确数值'},
   select: {jdbcTypeReplace: 'varchar', varcharLength: 255, javaType: 'String', friendlyJdbcType: '文本'},
   radio: {jdbcTypeReplace: 'varchar', varcharLength: 255, javaType: 'String', friendlyJdbcType: '文本'},
@@ -88,6 +92,51 @@ const TYPE_DB_CONFIG = {
   onlineFile: {jdbcTypeReplace: 'varchar', varcharLength: 255, javaType: 'String', friendlyJdbcType: '文本'},
   richText: {jdbcTypeReplace: 'varchar', varcharLength: 2000, javaType: 'String', friendlyJdbcType: '文本'},
   serialNo: {jdbcTypeReplace: 'varchar', varcharLength: 64, javaType: 'String', friendlyJdbcType: '文本'},
+}
+
+/** 将常见/错误物理类型归一到下拉合法 value */
+const normalizeJdbcTypeReplace = (value = '') => {
+  const raw = normalizeText(value).toLowerCase()
+  if (!raw) {
+    return ''
+  }
+  if (raw === 'int' || raw === 'int2' || raw === 'int4' || raw === 'int8'
+      || raw === 'integer' || raw === 'smallint' || raw === 'bigint' || raw === 'serial' || raw === 'bigserial') {
+    return 'integer'
+  }
+  if (raw === 'float' || raw === 'float4' || raw === 'float8' || raw === 'real' || raw === 'double' || raw === 'double precision' || raw === 'numeric') {
+    // numeric 更接近 decimal，但无精度信息时 double 可回显；带 precision 的走 decimal 分支
+    if (raw === 'numeric') {
+      return 'decimal'
+    }
+    return 'double'
+  }
+  if (raw === 'bool' || raw === 'boolean' || raw === 'tinyint') {
+    return raw === 'tinyint' ? 'boolean' : 'boolean'
+  }
+  if (raw === 'date' || raw === 'timestamp' || raw === 'timestamptz' || raw === 'datetime') {
+    return 'datetime'
+  }
+  if (raw === 'time' || raw === 'timetz') {
+    return 'time'
+  }
+  if (raw === 'text' || raw === 'clob' || raw === 'longtext' || raw === 'mediumtext') {
+    return raw === 'longtext' || raw === 'mediumtext' || raw === 'clob' || raw === 'text' ? 'longtext' : 'longtext'
+  }
+  if (raw === 'blob' || raw === 'bytea' || raw === 'longblob' || raw === 'binary') {
+    return 'longblob'
+  }
+  if (raw.indexOf('varchar') === 0 || raw === 'char' || raw === 'character' || raw === 'string') {
+    return 'varchar'
+  }
+  if (raw.indexOf('decimal') === 0) {
+    return 'decimal'
+  }
+  // 已是合法下拉值则保留
+  if (['varchar', 'integer', 'double', 'decimal', 'boolean', 'datetime', 'time', 'longblob', 'longtext'].includes(raw)) {
+    return raw
+  }
+  return raw
 }
 
 const QUERY_FIELD_TYPE_BY_DSL_TYPE = {
@@ -123,6 +172,24 @@ const SYSTEM_HIDDEN_JAVA_FIELD_TO_NAME = {
   updatedate: 'update_date',
   remarks: 'remarks',
   ownercode: 'owner_code',
+}
+
+/**
+ * Zform 实体上已有固定属性的字段名 → javaField。
+ * 这些字段不能再分配 s0x 槽位，否则列表/保存会映射到错误属性。
+ */
+const FIXED_JAVA_FIELD_BY_NAME = {
+  id: 'id',
+  status: 'status',
+  remarks: 'remarks',
+  owner_code: 'ownerCode',
+  del_flag: 'delFlag',
+  create_by: 'createBy.id',
+  create_date: 'createDate',
+  update_by: 'updateBy.id',
+  update_date: 'updateDate',
+  sort: 'sort',
+  // 注意：parent_id 在子表中是普通外键列，不要映射成树表的 parent.id
 }
 
 const SYSTEM_HIDDEN_FIELD_NAME_SET = new Set(SYSTEM_HIDDEN_FIELD_NAMES)
@@ -350,17 +417,20 @@ const getDbConfig = (field = {}, type = 'text') => {
       if (match) {
         config.varcharLength = Number(match[0])
       }
-    } else if (jdbcType.indexOf('decimal') === 0) {
+    } else if (jdbcType.indexOf('decimal') === 0 || jdbcType.indexOf('numeric') === 0) {
       config.jdbcTypeReplace = 'decimal'
-      const match = jdbcType.match(/decimal\((\d+),(\d+)\)/i)
+      const match = jdbcType.match(/(?:decimal|numeric)\((\d+),(\d+)\)/i)
       if (match) {
         config.decimalPrecision = Number(match[1])
         config.decimalScale = Number(match[2])
       }
     } else {
-      config.jdbcTypeReplace = jdbcType
+      // int → integer 等，保证与物理类型下拉 value 一致
+      config.jdbcTypeReplace = normalizeJdbcTypeReplace(jdbcType)
     }
   }
+  // 最终再归一一次，防止 TYPE_DB_CONFIG 或上游残留非法值（如 int）
+  config.jdbcTypeReplace = normalizeJdbcTypeReplace(config.jdbcTypeReplace) || config.jdbcTypeReplace
 
   if (db.length || field.maxLength) {
     config.varcharLength = toNumber(db.length || field.maxLength, config.varcharLength)
@@ -445,13 +515,32 @@ const getListDataIndex = (field = {}, item = {}, type = 'text') => {
   return isNameValueType ? `${name}__name` : name
 }
 
+const buildQueryFieldProps = ({field, type, isQuery, queryFieldType, dict}) => {
+  if (!isQuery) {
+    return null
+  }
+  const props = clone(field.list?.queryFieldProps || field.query?.props || {})
+  if (!props.placeholder) {
+    props.placeholder = field.label || field.name || ''
+  }
+  // 列表查询若声明了 select，必须带 dictType；否则 DynamicQueryField 只会渲染空下拉
+  const needsDict = queryFieldType === 'select' || type === 'select' || type === 'radio' || type === 'checkbox'
+  if (needsDict && !props.dictType && dict) {
+    props.dictType = dict
+  }
+  if (queryFieldType === 'date-range' || type === 'date') {
+    if (!props.formatPatter && !props.formatPattern) {
+      props.formatPatter = field.dateType || 'yyyy-MM-dd'
+    }
+  }
+  return props
+}
+
 const buildListConfig = ({field, item, type, isList, isQuery}) => {
   const queryFieldType = isQuery ? getQueryFieldType(field, type) : ''
-  const queryFieldProps = isQuery
-      ? clone(field.list?.queryFieldProps || field.query?.props || {})
-      : null
   const align = getDefaultAlign(field, type)
   const dict = field.list?.dict || field.dictType || ''
+  const queryFieldProps = buildQueryFieldProps({field, type, isQuery, queryFieldType, dict})
 
   return {
     dataIndex: getListDataIndex(field, item, type),
@@ -660,6 +749,27 @@ const scoreModalRelationHint = ({relation, field, currentFormId, currentForm, cu
   return 0
 }
 
+const stripBusinessSuffix = (text = '') => normalizeMatchText(text)
+    .replace(/(基本)?信息$/g, '')
+    .replace(/(管理|列表|表单|台账|档案|资料)$/g, '')
+    .replace(/(表)$/g, '')
+
+const getFieldRelationStem = (field = {}) => {
+  const name = normalizeText(field.name)
+  const label = normalizeText(field.label)
+  const nameStem = name
+      .replace(/(_id|_ids|_no|_code|_name)$/i, '')
+      .replace(/^(fk_|ref_)/i, '')
+  const labelStem = stripBusinessSuffix(label)
+      .replace(/(编号|编码|名称|标题)$/g, '')
+  return {
+    nameStem: normalizeMatchText(nameStem),
+    labelStem: normalizeMatchText(labelStem),
+    rawName: normalizeMatchText(name),
+    rawLabel: normalizeMatchText(label),
+  }
+}
+
 const scoreModalTargetForm = ({field, context, targetForm, targetIndex, explicitTargetText}) => {
   const currentFormId = getContextCurrentFormId(context)
   const currentEntry = getContextCurrentFormEntry(context)
@@ -670,33 +780,72 @@ const scoreModalTargetForm = ({field, context, targetForm, targetIndex, explicit
 
   const targetName = getContextFormName(targetForm)
   const targetTitle = getContextFormTitle(targetForm)
-  const fieldName = normalizeText(field.name)
-  const fieldLabel = normalizeText(field.label)
-  const fieldMatchText = normalizeMatchText(`${fieldLabel} ${fieldName.replace(/_id$|_ids$/g, '')}`)
+  const targetNameText = normalizeMatchText(targetName)
+  const targetTitleText = stripBusinessSuffix(targetTitle)
   const targetMatchText = normalizeMatchText(`${targetTitle} ${targetName}`)
+  const {nameStem, labelStem, rawName, rawLabel} = getFieldRelationStem(field)
   let score = 0
 
   if (explicitTargetText) {
     const explicitText = normalizeMatchText(explicitTargetText)
-    if (explicitText && [targetId, targetName, targetTitle].map(normalizeMatchText).some(text => text === explicitText || text.includes(explicitText) || explicitText.includes(text))) {
+    const candidates = [targetId, targetName, targetTitle].map(normalizeMatchText).filter(Boolean)
+    if (explicitText && candidates.some(text => text === explicitText)) {
+      score += 200
+    } else if (explicitText && candidates.some(text => text.includes(explicitText) || explicitText.includes(text))) {
+      score += 120
+    }
+  }
+
+  // customer_id / lims_customer：字段主干与表名精确或包含匹配，权重最高
+  if (nameStem && targetNameText) {
+    if (nameStem === targetNameText || targetNameText.endsWith(`_${nameStem}`) || targetNameText === nameStem) {
+      score += 160
+    } else if (targetNameText.includes(nameStem) || nameStem.includes(targetNameText.replace(/^.*_/, ''))) {
+      score += 90
+    }
+  }
+
+  // 委托客户 → 委托客户 / lims_customer 标题匹配
+  if (labelStem && targetTitleText) {
+    if (labelStem === targetTitleText) {
+      score += 150
+    } else if (targetTitleText.includes(labelStem) || labelStem.includes(targetTitleText)) {
       score += 100
     }
   }
 
-  if (fieldMatchText && targetMatchText) {
-    if (targetMatchText.includes(fieldMatchText) || fieldMatchText.includes(targetMatchText)) {
-      score += 40
+  // 字段名/标签与表名业务词重叠（customer / 客户）
+  if (nameStem && targetMatchText.includes(nameStem)) {
+    score += 40
+  }
+  if (labelStem && targetMatchText.includes(labelStem)) {
+    score += 50
+  }
+
+  // 常见业务别名：客户→customer，点位/站点→site，项目→item/test_item，委托→order
+  const aliasPairs = [
+    ['客户', 'customer'],
+    ['点位', 'site'],
+    ['站点', 'site'],
+    ['项目', 'item'],
+    ['检测项目', 'test_item'],
+    ['委托', 'order'],
+    ['样品', 'sample'],
+    ['用户', 'user'],
+    ['部门', 'office'],
+  ]
+  aliasPairs.forEach(([cn, en]) => {
+    const hasCn = rawLabel.includes(normalizeMatchText(cn)) || labelStem.includes(normalizeMatchText(cn))
+    const hasEn = nameStem.includes(en) || targetNameText.includes(en)
+    const targetHasCn = targetTitleText.includes(normalizeMatchText(cn))
+    const targetHasEn = targetNameText.includes(en)
+    if ((hasCn || hasEn) && (targetHasCn || targetHasEn)) {
+      score += 70
     }
-    fieldMatchText.split(/_+/).filter(text => text.length > 1).forEach(token => {
-      if (targetMatchText.includes(token)) {
-        score += 12
-      }
-    })
-    Array.from(fieldMatchText.matchAll(/[\u3400-\u9fff]{2,}/g)).forEach(match => {
-      if (targetMatchText.includes(match[0])) {
-        score += 20
-      }
-    })
+  })
+
+  if (rawName && targetNameText && (rawName === targetNameText || targetNameText.endsWith(rawName))) {
+    score += 80
   }
 
   getContextRelations(context).forEach(relation => {
@@ -740,47 +889,110 @@ const resolveModalSelectTargetForm = (field = {}, context = {}, controlProps = {
   return scored[0].form
 }
 
-const getTargetFormFields = (form = {}) => toArray(form.dsl?.fields || form.fields || form.sourceMaterialForm?.fields)
-    .map(field => ({
-      ...field,
-      name: normalizeText(field.name || field.nameHint || field.fieldName),
-      label: normalizeText(field.label || field.title || field.comments || field.labelHint),
-      type: FIELD_TYPE_ALIAS_MAP[field.type || field.typeHint] || field.type || field.typeHint || 'text',
-      isList: field.isList ?? field.listHint,
-      isQuery: field.isQuery ?? field.queryHint,
-    }))
-    .filter(field => field.name && field.label && !isSystemHiddenFieldName(field.name))
+const mapShowTypeToDslType = (showType = '') => {
+  const key = normalizeText(showType)
+  return SHOW_TYPE_TO_DSL_TYPE[key] || FIELD_TYPE_ALIAS_MAP[key] || key || 'text'
+}
+
+/**
+ * 统一抽取目标表字段：
+ * 1) 本模块 DSL / 材料字段
+ * 2) 已落库 gen_table 经 editForm 灌入的真实列（raw.column / genColumns）
+ */
+const getTargetFormFields = (form = {}) => {
+  const fromDsl = toArray(form.dsl?.fields || form.fields || form.sourceMaterialForm?.fields)
+  const fromGenColumns = toArray(form.genColumns || form.columns)
+  const raw = fromDsl.length > 0 ? fromDsl : fromGenColumns
+
+  return raw
+      .map((field) => {
+        // gen_table_column 形态
+        const isGenColumn = field.comments !== undefined || field.showType !== undefined || field.isList === '1' || field.isList === '0'
+        if (isGenColumn && !field.label && (field.comments || field.name)) {
+          const showType = normalizeText(field.showType)
+          const type = mapShowTypeToDslType(showType)
+          return {
+            name: normalizeText(field.name),
+            label: normalizeText(field.comments || field.name),
+            type,
+            showType,
+            dictType: normalizeText(field.dictType || ''),
+            isList: field.isList === '1' || field.isList === 1 || field.isList === true,
+            isQuery: field.isQuery === '1' || field.isQuery === 1 || field.isQuery === true,
+            listSort: toNumber(field.listSort, 9999),
+            searchSort: toNumber(field.searchSort, 9999),
+            align: field.align || '',
+            javaField: field.javaField || '',
+            list: {
+              show: field.isList === '1' || field.isList === 1 || field.isList === true,
+              dataIndex: normalizeText(field.name),
+              align: field.align || '',
+              dict: normalizeText(field.dictType || ''),
+            },
+            query: {
+              enabled: field.isQuery === '1' || field.isQuery === 1 || field.isQuery === true,
+            },
+            raw: {column: field, fromGenTable: true},
+          }
+        }
+        return {
+          ...field,
+          name: normalizeText(field.name || field.nameHint || field.fieldName),
+          label: normalizeText(field.label || field.title || field.comments || field.labelHint),
+          type: FIELD_TYPE_ALIAS_MAP[field.type || field.typeHint] || field.type || field.typeHint || 'text',
+          isList: field.isList ?? field.listHint,
+          isQuery: field.isQuery ?? field.queryHint,
+          listSort: toNumber(field.listSort ?? field.list?.sort, 9999),
+          dictType: field.dictType || field.list?.dict || '',
+        }
+      })
+      .filter(field => field.name && field.label && !isSystemHiddenFieldName(field.name))
+      // 排除纯主键/删除标记等无展示列
+      .filter(field => !['id', 'del_flag', 'owner_code'].includes(normalizeText(field.name)))
+}
 
 const scoreModalSelectColumn = (field = {}) => {
   const name = normalizeText(field.name)
   const label = normalizeText(field.label)
   const type = FIELD_TYPE_ALIAS_MAP[field.type] || field.type || 'text'
   let score = 0
+  // 真实列表字段优先
   if (toBoolean(field.list?.show) || toBoolean(field.isList)) {
-    score += 60
+    score += 80
+  } else {
+    score -= 10
   }
-  if (/编号|编码|单号|名称|标题|主题|类型|状态/.test(label)) {
+  if (toBoolean(field.query?.enabled) || toBoolean(field.isQuery)) {
+    score += 40
+  }
+  if (/编号|编码|单号|名称|标题|主题|类型|状态|联系人|电话/.test(label)) {
     score += 30
   }
-  if (/(^|_)(no|code|name|title|type|status)(_|$)/i.test(name)) {
+  if (/(^|_)(no|code|name|title|type|status|phone|contact)(_|$)/i.test(name)) {
     score += 24
   }
-  if (['text', 'select', 'radio', 'date', 'user', 'office', 'modalSelect'].includes(type)) {
+  if (['text', 'select', 'radio', 'date', 'user', 'office', 'modalSelect', 'integer', 'decimal'].includes(type)) {
     score += 8
   }
   if (['textarea', 'richText', 'upload', 'imageUpload', 'onlineFile'].includes(type)) {
-    score -= 40
+    score -= 50
+  }
+  // listSort 越小越靠前
+  const listSort = toNumber(field.listSort, 9999)
+  if (listSort < 9999) {
+    score += Math.max(0, 30 - Math.min(listSort, 30))
   }
   return score
 }
 
 const getModalSelectColumnDataIndex = (field = {}) => {
-  const type = FIELD_TYPE_ALIAS_MAP[field.type] || field.type || 'text'
+  // 弹窗数据列 dataIndex 必须是目标表真实字段名（如 customer_code、name）
+  // 不要用 name__name —— 那是当前表列表展示关联字段时的写法
   const explicit = normalizeText(field.list?.dataIndex)
-  if (explicit) {
+  if (explicit && !explicit.endsWith('__name')) {
     return explicit
   }
-  return NAME_VALUE_TYPES.includes(type) ? `${field.name}__name` : field.name
+  return normalizeText(field.name)
 }
 
 const shouldUseModalSelectColumnAsQuery = (field = {}, index = 0) => {
@@ -791,21 +1003,53 @@ const shouldUseModalSelectColumnAsQuery = (field = {}, index = 0) => {
   return index < 2 && /编号|编码|单号|名称|标题|主题|no|code|name|title/i.test(text)
 }
 
+/**
+ * 是否为“假字段”占位（历史逻辑写死的 name/code）。
+ * 若只有这类字段，说明未加载真实列，不应生成误导性数据列。
+ */
+const isPlaceholderOnlyTargetFields = (fields = []) => {
+  const list = toArray(fields)
+  if (list.length === 0) {
+    return true
+  }
+  if (list.length > 3) {
+    return false
+  }
+  const names = list.map(field => normalizeText(field.name))
+  const placeholderSet = new Set(['name', 'code', 'title', 'id'])
+  return names.every(name => placeholderSet.has(name)) && !list.some(field => field.raw?.fromGenTable)
+}
+
 const buildModalSelectColumns = (targetForm = {}) => {
-  const fields = getTargetFormFields(targetForm)
+  const allFields = getTargetFormFields(targetForm)
+  // 已落库表若只有 name/code 占位，返回空数组，交给上层去 editForm 拉真实列
+  if (isPlaceholderOnlyTargetFields(allFields) && (targetForm.source === 'existing-gen-table' || targetForm.genTableId || targetForm.id && !targetForm.dsl)) {
+    return []
+  }
+
+  const fields = allFields
       .map(field => ({
         field,
         score: scoreModalSelectColumn(field),
       }))
       .filter(item => item.score > -20)
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 5)
+      .sort((a, b) => {
+        if (b.score !== a.score) {
+          return b.score - a.score
+        }
+        return toNumber(a.field.listSort, 9999) - toNumber(b.field.listSort, 9999)
+      })
+      .slice(0, 8)
       .map(item => item.field)
 
-  return fields.map((field, index) => ({
+  // 若有明确 isList 字段，优先只展示列表字段（最多 8 个）
+  const listFields = fields.filter(field => toBoolean(field.list?.show) || toBoolean(field.isList))
+  const effectiveFields = listFields.length > 0 ? listFields.slice(0, 8) : fields.slice(0, 6)
+
+  return effectiveFields.map((field, index) => ({
     dataIndex: getModalSelectColumnDataIndex(field),
     title: field.label,
-    align: field.list?.align || getDefaultAlign(field, FIELD_TYPE_ALIAS_MAP[field.type] || field.type || 'text'),
+    align: field.list?.align || field.align || getDefaultAlign(field, FIELD_TYPE_ALIAS_MAP[field.type] || field.type || 'text'),
     isShow: '1',
     isQuery: shouldUseModalSelectColumnAsQuery(field, index) ? '1' : '0',
     queryDataIndex: field.list?.queryColumn || '',
@@ -893,29 +1137,91 @@ const syncModalSelectColumnConfig = (item = {}) => {
   }
 }
 
+const isLikelyHallucinatedFormNo = (formNo = '', field = {}, context = {}) => {
+  const text = normalizeText(formNo)
+  if (!text) {
+    return true
+  }
+  const forms = getContextForms(context)
+  if (forms.length === 0) {
+    // 无候选表时，不把已有 formNo 当幻觉；交给后续同步
+    return false
+  }
+  const matched = forms.some((form, index) => {
+    const name = getContextFormName(form)
+    const title = getContextFormTitle(form)
+    const id = getContextFormId(form, index)
+    return [name, title, id].map(normalizeText).filter(Boolean).some(candidate => {
+      const a = normalizeMatchText(candidate)
+      const b = normalizeMatchText(text)
+      return a === b || a.endsWith(b) || b.endsWith(a) || a.includes(b) || b.includes(a)
+    })
+  })
+  return !matched
+}
+
+/** 历史/占位数据列：只有 code/name 等假字段时视为无效，需用真实列覆盖 */
+const isPlaceholderModalColumns = (columns = []) => {
+  const list = toArray(columns)
+  if (list.length === 0) {
+    return true
+  }
+  if (list.length > 3) {
+    return false
+  }
+  const names = list.map(col => normalizeText(col.dataIndex || col.name))
+  const placeholderSet = new Set(['name', 'code', 'title', 'id', '编码', '名称'])
+  const titles = list.map(col => normalizeText(col.title || col.label))
+  const allPlaceholderNames = names.every(name => placeholderSet.has(name))
+  const allPlaceholderTitles = titles.every(title => /^(编码|名称|标题|code|name|title)$/i.test(title))
+  return allPlaceholderNames || allPlaceholderTitles
+}
+
 const patchModalSelectProps = (item, field, context = {}) => {
   const controlProps = item.formControlProps || {}
-  if (controlProps.formNo && toArray(controlProps.allColumns).length > 0) {
+  const existingFormNo = normalizeText(controlProps.formNo || item.column?.tableName || item.column?.formNo)
+  const existingColumns = toArray(controlProps.allColumns)
+  const shouldReresolve = !existingFormNo
+      || existingColumns.length === 0
+      || isPlaceholderModalColumns(existingColumns)
+      || isLikelyHallucinatedFormNo(existingFormNo, field, context)
+
+  if (!shouldReresolve && existingFormNo && existingColumns.length > 0) {
     syncModalSelectColumnConfig(item)
     return
   }
+
   const targetForm = resolveModalSelectTargetForm(field, context, controlProps)
   if (!targetForm) {
+    // 匹配失败时清空胡写的 formNo，避免落到错误表
+    if (existingFormNo && isLikelyHallucinatedFormNo(existingFormNo, field, context)) {
+      controlProps.formNo = ''
+      if (item.column) {
+        item.column.tableName = ''
+        item.column.formNo = ''
+      }
+    }
+    // 假列也清掉，避免保存「编码,名称」误导
+    if (isPlaceholderModalColumns(existingColumns)) {
+      controlProps.allColumns = []
+    }
     syncModalSelectColumnConfig(item)
     return
   }
+
   const targetFormName = getContextFormName(targetForm)
-  if (!controlProps.formNo && targetFormName) {
+  if (targetFormName) {
     controlProps.formNo = targetFormName
   }
-  if (toArray(controlProps.allColumns).length === 0) {
-    controlProps.allColumns = buildModalSelectColumns(targetForm)
+  const rebuiltColumns = buildModalSelectColumns(targetForm)
+  if (rebuiltColumns.length > 0 && (shouldReresolve || existingColumns.length === 0 || isPlaceholderModalColumns(existingColumns))) {
+    controlProps.allColumns = rebuiltColumns
   }
   if (!controlProps.nameDataIndex) {
     controlProps.nameDataIndex = getModalSelectNameDataIndex(controlProps.allColumns)
   }
   syncModalSelectColumnConfig(item)
-  if (!controlProps.modalTitle) {
+  if (!controlProps.modalTitle || shouldReresolve) {
     controlProps.modalTitle = `请选择${field.label || getContextFormTitle(targetForm) || ''}`
   }
 }
@@ -1028,6 +1334,21 @@ const patchControlProps = (item, field, type, context = {}) => {
   }
 }
 
+const applyFixedJavaFieldIfNeeded = (item = {}, field = {}) => {
+  const column = item.column || {}
+  const fieldName = normalizeText(field.name || column.name)
+  const fixed = FIXED_JAVA_FIELD_BY_NAME[fieldName]
+  if (!fixed) {
+    return
+  }
+  column.javaField = fixed
+  column.javaFieldReplace = fixed.replace(/\|/g, '-').replace(/\./g, '-')
+  // status/remarks 等固定字段：物理列名与 name 一致，避免被槽位名覆盖
+  if (!column.name) {
+    column.name = fieldName
+  }
+}
+
 const patchDesignerItem = ({item, field, type, index, context = {}}) => {
   const span = toNumber(field.form?.colProps?.span || field.span, 12)
   const isList = field.list?.show !== undefined ? toBoolean(field.list.show) : toBoolean(field.isList)
@@ -1069,6 +1390,9 @@ const patchDesignerItem = ({item, field, type, index, context = {}}) => {
   column.blockChainParam1 = column.blockChainParam1 || '0'
   column.blockChainParam2 = column.blockChainParam2 || '0'
   column.blockChainParam3 = column.blockChainParam3 || '0'
+
+  // 固定属性字段（status/remarks 等）必须使用实体属性名，不能用 s0x
+  applyFixedJavaFieldIfNeeded(item, field)
 
   patchColumnDbConfig(column, field, type)
   syncControlMaxlengthWithColumn(item)
@@ -1175,7 +1499,105 @@ export const convertDslFieldToDesignerItem = (field = {}, index = 0, context = {
   }
 }
 
-const buildFormPatch = (dsl = {}) => {
+/**
+ * 根据表名/标题/字段推断主子表关系。
+ * 例：lims_order_item / 委托明细 → parentTable=lims_order, parentTableFk=parent_id
+ */
+const inferParentTableFromContext = (dsl = {}, context = {}) => {
+  const form = dsl.form || {}
+  const explicitParent = normalizeText(form.parentTable || form.parentFormNo || form.parentName)
+  if (explicitParent) {
+    return {
+      parentTable: explicitParent,
+      parentTableFk: normalizeText(form.parentTableFk || form.parentFk || 'parent_id') || 'parent_id',
+      tableType: form.tableType || '0',
+    }
+  }
+
+  const formName = normalizeText(form.name)
+  const formTitle = normalizeText(form.title)
+  const forms = getContextForms(context)
+  const fieldNames = toArray(dsl.fields).map(field => normalizeText(field.name))
+  const hasParentIdField = fieldNames.includes('parent_id') || fieldNames.includes('parentId')
+
+  const looksLikeChildByName = /(_item|_detail|_items|_details|_line|_sub)$/i.test(formName)
+      || /(明细|子表|明细行|清单行)/.test(formTitle)
+  if (!looksLikeChildByName && !hasParentIdField) {
+    return null
+  }
+
+  // 1) 从 formName 去掉 _item/_detail 等后缀猜主表
+  let guessedParentName = formName
+      .replace(/(_items|_details|_item|_detail|_lines|_line|_subs|_sub)$/i, '')
+  if (guessedParentName && guessedParentName !== formName) {
+    const matched = forms.find((item, index) => {
+      const name = getContextFormName(item)
+      return normalizeText(name) === guessedParentName
+    })
+    if (matched || guessedParentName) {
+      return {
+        parentTable: getContextFormName(matched) || guessedParentName,
+        parentTableFk: 'parent_id',
+        tableType: form.tableType || '0',
+      }
+    }
+  }
+
+  // 2) 标题「委托明细」→ 找标题含「委托」且不含「明细」的表
+  const titleStem = stripBusinessSuffix(formTitle)
+      .replace(/(明细|子表|清单|明细行|列表)$/g, '')
+  if (titleStem) {
+    const scored = forms
+        .map((item, index) => {
+          const name = getContextFormName(item)
+          const title = getContextFormTitle(item)
+          if (normalizeText(name) === formName) {
+            return null
+          }
+          if (/(明细|子表)/.test(title)) {
+            return null
+          }
+          const titleText = stripBusinessSuffix(title)
+          let score = 0
+          if (titleText && (titleText === titleStem || titleText.includes(titleStem) || titleStem.includes(titleText))) {
+            score += 100
+          }
+          if (name && formName.startsWith(name)) {
+            score += 80
+          }
+          return score > 0 ? {name, score} : null
+        })
+        .filter(Boolean)
+        .sort((a, b) => b.score - a.score)
+    if (scored[0]) {
+      return {
+        parentTable: scored[0].name,
+        parentTableFk: 'parent_id',
+        tableType: form.tableType || '0',
+      }
+    }
+  }
+
+  if (hasParentIdField && forms.length > 0) {
+    // 有 parent_id 字段时，优先选同模块前缀最接近的非自身表
+    const prefix = formName.split('_').slice(0, 2).join('_')
+    const candidate = forms.find((item) => {
+      const name = getContextFormName(item)
+      return name && name !== formName && (!prefix || name.startsWith(prefix)) && !/(_item|_detail)$/i.test(name)
+    })
+    if (candidate) {
+      return {
+        parentTable: getContextFormName(candidate),
+        parentTableFk: 'parent_id',
+        tableType: form.tableType || '0',
+      }
+    }
+  }
+
+  return null
+}
+
+const buildFormPatch = (dsl = {}, context = {}) => {
   const form = dsl.form || {}
   const patch = {}
   if (!isEmpty(form.name)) {
@@ -1190,6 +1612,20 @@ const buildFormPatch = (dsl = {}) => {
   }
   patch.tableType = form.tableType || '0'
   patch.pkColumnName = form.pkColumnName || 'id'
+
+  const parentInfo = inferParentTableFromContext(dsl, context)
+  if (parentInfo?.parentTable) {
+    patch.parentTable = parentInfo.parentTable
+    patch.parentTableFk = parentInfo.parentTableFk || 'parent_id'
+    // 有主表时保持 tableType 为普通列表(0)，parentTable 表达子表关系（与框架惯例一致）
+    if (!form.tableType) {
+      patch.tableType = '0'
+    }
+  } else if (!isEmpty(form.parentTable)) {
+    patch.parentTable = form.parentTable
+    patch.parentTableFk = form.parentTableFk || 'parent_id'
+  }
+
   return patch
 }
 
@@ -1278,7 +1714,7 @@ export const convertDslToDesignerStatePatch = (dsl = {}, context = {}, options =
 
   return {
     version: dsl.version || '',
-    formPatch: buildFormPatch(dsl),
+    formPatch: buildFormPatch(dsl, context),
     formPropsPatch: buildFormPropsPatch(dsl),
     displayFormItemArr,
     hideFormItemArr,

@@ -167,7 +167,8 @@ export const dynamicFormItemType = [
             "maxValue": "",
             "friendlyJdbcType": "整型",
             "javaType": "Integer",
-            "jdbcType": "int",
+            // 必须与 genOptionData.jdbcTypeOptionData 的 value 一致（integer），不能写 int
+            "jdbcType": "integer",
             "queryType": "=",
             "validateType": "number",
             "isForm": 1,
@@ -1136,13 +1137,30 @@ export const transformGenTableColumnToDynamicFormItemConfig = (table, column) =>
     if (num) {
         column.varcharLength = num
         column.jdbcTypeReplace = column.jdbcType.replace(/\(/g, '').replace(/\)/g, '').replace(/\d+/g, '');
-    } else if (column.jdbcType.indexOf("decimal") > -1) {
-        let decimalMatch = column.jdbcType.match(/decimal\((\d+),(\d+)\)/i);
+    } else if (column.jdbcType.indexOf("decimal") > -1 || column.jdbcType.indexOf("numeric") > -1) {
+        let decimalMatch = column.jdbcType.match(/(?:decimal|numeric)\((\d+),(\d+)\)/i);
         column.decimalPrecision = decimalMatch ? decimalMatch[1] : '18';
         column.decimalScale = decimalMatch ? decimalMatch[2] : '4';
         column.jdbcTypeReplace = 'decimal';
     } else {
-        column.jdbcTypeReplace = column.jdbcType
+        // 归一到物理类型下拉合法 value：int → integer，避免无法回显
+        const raw = String(column.jdbcType || '').toLowerCase().replace(/\s+/g, '')
+        if (raw === 'int' || raw === 'int2' || raw === 'int4' || raw === 'int8'
+            || raw === 'smallint' || raw === 'bigint' || raw === 'serial' || raw === 'bigserial') {
+            column.jdbcTypeReplace = 'integer'
+        } else if (raw === 'float' || raw === 'float4' || raw === 'float8' || raw === 'real' || raw === 'double' || raw === 'doubleprecision') {
+            column.jdbcTypeReplace = 'double'
+        } else if (raw === 'bool' || raw === 'boolean' || raw === 'tinyint' || raw === 'tinyint(1)') {
+            column.jdbcTypeReplace = 'boolean'
+        } else if (raw === 'date' || raw === 'timestamp' || raw === 'timestamptz' || raw === 'datetime') {
+            column.jdbcTypeReplace = 'datetime'
+        } else if (raw === 'text' || raw === 'clob' || raw === 'mediumtext') {
+            column.jdbcTypeReplace = 'longtext'
+        } else if (raw === 'blob' || raw === 'bytea' || raw === 'binary') {
+            column.jdbcTypeReplace = 'longblob'
+        } else {
+            column.jdbcTypeReplace = column.jdbcType
+        }
     }
     if (isEmpty(column.selectSimple)) {
         column.selectSimple = ''

@@ -1140,9 +1140,20 @@
                   type="primary"
                   :disabled="!canApplyConversion || conversionApplied"
                   @click="applyDesignerState"
-              >{{ conversionApplied ? '已应用到设计器' : '应用到设计器' }}</a-button>
+              >{{ conversionApplied ? '已应用到设计器' : (isIncrementalApplyMode ? '增量补充到设计器' : '全量应用到设计器') }}</a-button>
             </div>
           </div>
+
+          <div class="apply-mode-row">
+            <span class="apply-mode-label">应用方式</span>
+            <a-radio-group v-model:value="applyMode" button-style="solid" size="small">
+              <a-radio-button value="incremental">仅增量补充字段</a-radio-button>
+              <a-radio-button value="replace">全量替换</a-radio-button>
+            </a-radio-group>
+            <a-tag v-if="designerBusinessFieldCount > 0" color="blue">当前画布约 {{ designerBusinessFieldCount }} 个业务字段</a-tag>
+            <a-tag v-else color="default">空表 / 无业务字段</a-tag>
+          </div>
+          <div class="apply-mode-hint">{{ applyModeHintText }}</div>
 
           <a-alert
               v-if="conversionApplied"
@@ -1161,13 +1172,21 @@
 
           <template v-else>
             <div class="conversion-summary">
+              <div v-if="isIncrementalApplyMode && conversionPreview.mode === 'incremental'" class="summary-item success">
+                <span class="summary-count">{{ conversionPreview.summary.addCount ?? 0 }}</span>
+                <span>将新增</span>
+              </div>
+              <div v-if="isIncrementalApplyMode && conversionPreview.mode === 'incremental'" class="summary-item">
+                <span class="summary-count">{{ conversionPreview.summary.skipCount ?? 0 }}</span>
+                <span>将跳过</span>
+              </div>
               <div class="summary-item">
                 <span class="summary-count">{{ conversionPreview.summary.displayCount }}</span>
-                <span>显示字段</span>
+                <span>{{ isIncrementalApplyMode ? '应用后显示' : '显示字段' }}</span>
               </div>
               <div class="summary-item">
                 <span class="summary-count">{{ conversionPreview.summary.hiddenCount }}</span>
-                <span>隐藏字段</span>
+                <span>{{ isIncrementalApplyMode ? '隐藏(不变)' : '隐藏字段' }}</span>
               </div>
               <div class="summary-item">
                 <span class="summary-count">{{ conversionListCount }}</span>
@@ -1202,27 +1221,80 @@
 
                 <div class="conversion-meta">
                   <div class="meta-item">
+                    <span class="meta-label wide">应用模式</span>
+                    <span class="meta-value">{{ conversionPreview.mode === 'incremental' ? '增量补充' : '全量替换' }}</span>
+                  </div>
+                  <div class="meta-item">
                     <span class="meta-label wide">表单标题</span>
-                    <span class="meta-value">{{ conversionPreview.formPatch.comments || '-' }}</span>
+                    <span class="meta-value">{{ conversionPreview.formPatch?.comments || conversionPreview.summary?.title || '-' }}</span>
                   </div>
                   <div class="meta-item">
                     <span class="meta-label wide">表名</span>
-                    <span class="meta-value code">{{ conversionPreview.formPatch.name || '-' }}</span>
+                    <span class="meta-value code">{{ conversionPreview.formPatch?.name || conversionPreview.summary?.formName || '-' }}</span>
                   </div>
                   <div class="meta-item">
                     <span class="meta-label wide">Label宽度</span>
-                    <span class="meta-value">{{ conversionPreview.formPropsPatch.labelWidth || '-' }}</span>
+                    <span class="meta-value">{{ conversionPreview.formPropsPatch?.labelWidth || (conversionPreview.mode === 'incremental' ? '不修改' : '-') }}</span>
                   </div>
                   <div class="meta-item">
                     <span class="meta-label wide">可应用</span>
                     <span :class="['meta-value', conversionPreview.canApply ? 'success-text' : 'error-text']">
-                      {{ conversionPreview.canApply ? '是' : '否，需先处理错误' }}
+                      {{ conversionPreview.canApply ? '是' : (conversionPreview.mode === 'incremental' && (conversionPreview.summary?.addCount || 0) === 0 ? '否，无新增字段' : '否，需先处理错误') }}
                     </span>
                   </div>
                 </div>
 
+                <div v-if="conversionPreview.mode === 'incremental'" class="conversion-block">
+                  <div class="preview-title">将新增（{{ incrementalAddFields.length }}）</div>
+                  <div v-if="incrementalAddFields.length === 0" class="empty-text">无新增字段</div>
+                  <div v-else class="conversion-field-list">
+                    <div
+                        v-for="field in incrementalAddFields"
+                        :key="'add-' + field.name"
+                        class="conversion-field-row"
+                    >
+                      <div class="field-main">
+                        <span class="field-label">{{ field.label }}</span>
+                        <span class="field-name">{{ field.name }}</span>
+                      </div>
+                      <div class="field-tags">
+                        <a-tag color="green">新增</a-tag>
+                        <a-tag color="blue">{{ field.key }}</a-tag>
+                        <a-tag>{{ field.showType }}</a-tag>
+                        <a-tag v-if="field.required" color="red">必填</a-tag>
+                        <a-tag v-if="field.isList" color="green">列表</a-tag>
+                        <a-tag v-if="field.isQuery" color="cyan">查询</a-tag>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div v-if="conversionPreview.mode === 'incremental' && incrementalSkippedFields.length > 0" class="conversion-block">
+                  <div class="preview-title">将跳过 · 保留原配置（{{ incrementalSkippedFields.length }}）</div>
+                  <div class="conversion-field-list">
+                    <div
+                        v-for="field in incrementalSkippedFields"
+                        :key="'skip-' + field.name"
+                        class="conversion-field-row"
+                    >
+                      <div class="field-main">
+                        <span class="field-label">{{ field.label || field.name }}</span>
+                        <span class="field-name">{{ field.name }}</span>
+                      </div>
+                      <div class="field-tags">
+                        <a-tag>跳过</a-tag>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div v-if="conversionPreview.mode === 'incremental' && incrementalIgnoredHidden.length > 0" class="conversion-block">
+                  <div class="preview-title">忽略 · 隐藏/系统字段（{{ incrementalIgnoredHidden.length }}）</div>
+                  <div class="empty-text">增量模式不处理 create_by / update_date 等系统隐藏字段。</div>
+                </div>
+
                 <div class="conversion-block">
-                  <div class="preview-title">显示区域字段</div>
+                  <div class="preview-title">{{ conversionPreview.mode === 'incremental' ? '应用后显示区域（含保留）' : '显示区域字段' }}</div>
                   <div v-if="conversionDisplayFields.length === 0" class="empty-text">暂无</div>
                   <div v-else class="conversion-field-list">
                     <div
@@ -1804,6 +1876,10 @@ import {generateFormDesignDslDraft} from "@/views/gen/genTableExt/ai/dslDraftGen
 import {checkFormDesignDsl, summarizeDesignIssues} from "@/views/gen/genTableExt/ai/designCheckRules";
 import {explainFormDesignIssues} from "@/views/gen/genTableExt/ai/designIssueExplain";
 import {convertDslToDesignerStatePatch} from "@/views/gen/genTableExt/ai/dslToDesignerState";
+import {
+  buildIncrementalFieldPatch,
+  resolveDefaultApplyMode,
+} from "@/views/gen/genTableExt/ai/mergeIncrementalFields";
 import {summarizeSchemaIssues, validateFormDesignDslSchema} from "@/views/gen/genTableExt/ai/dslSchema";
 import {
   buildClarifiedRequirementText,
@@ -1969,6 +2045,8 @@ const materialRecognitionResult = ref(null)
 const draft = ref(null)
 const conversionPreview = ref(null)
 const conversionApplied = ref(false)
+/** replace=全量替换；incremental=仅追加新字段 */
+const applyMode = ref('replace')
 const formalizePreview = ref(null)
 const formalizeCheckResult = ref(createEmptyFormalizeCheckResult())
 const draftHistoryVisible = ref(false)
@@ -3223,6 +3301,34 @@ const canApplyConversion = computed(() => {
   return Boolean(conversionPreview.value && conversionPreview.value.canApply)
 })
 
+const isIncrementalApplyMode = computed(() => applyMode.value === 'incremental')
+
+const designerBusinessFieldCount = computed(() => {
+  const names = new Set(['create_by', 'create_date', 'update_by', 'update_date', 'remarks', 'owner_code', 'del_flag', 'id'])
+  return (props.displayFormItemArr || []).filter(item => {
+    const name = String(item?.formItemProps?.name || item?.column?.name || '').trim().toLowerCase()
+    return name && !names.has(name)
+  }).length
+})
+
+const applyModeHintText = computed(() => {
+  if (isIncrementalApplyMode.value) {
+    return '增量补充：只追加草稿中尚不存在的业务字段；同名跳过；不修改隐藏区域与表头。'
+  }
+  return '全量替换：用草稿覆盖当前显示区与隐藏区字段配置（已有微调会丢失）。'
+})
+
+const incrementalAddFields = computed(() => {
+  if (!conversionPreview.value || conversionPreview.value.mode !== 'incremental') {
+    return []
+  }
+  return (conversionPreview.value.toAdd || []).map(normalizePreviewField)
+})
+
+const incrementalSkippedFields = computed(() => conversionPreview.value?.skipped || [])
+
+const incrementalIgnoredHidden = computed(() => conversionPreview.value?.ignoredHidden || [])
+
 const formalizePreviewColumns = computed(() => {
   return formalizePreview.value ? formalizePreview.value.fieldPreview.columns.slice(0, 16) : []
 })
@@ -3399,10 +3505,13 @@ const activeDemoFlowStepText = computed(() => {
 })
 
 const conversionAppliedNoticeText = computed(() => {
+  const modeHint = isIncrementalApplyMode.value
+    ? '已按增量补充写入画布（旧字段配置保留，隐藏区未改）。'
+    : '已按全量替换写入画布。'
   if (currentRemoteDraftId.value) {
-    return '服务器草稿已保存，可选做配置完整性审查；正式落库仍需关闭抽屉后点击页面原保存。'
+    return `${modeHint} 服务器草稿已保存，可选做配置完整性审查；正式落库仍需关闭抽屉后点击页面原保存。`
   }
-  return '当前只修改了设计器页面内存，建议先保存服务器草稿便于追溯；正式落库仍需关闭抽屉后点击页面原保存。'
+  return `${modeHint} 当前只修改了设计器页面内存，建议先保存服务器草稿便于追溯；正式落库仍需关闭抽屉后点击页面原保存。`
 })
 
 const aiDraftGenerateButtonText = computed(() => {
@@ -3761,6 +3870,12 @@ watch(() => props.visible, (visible) => {
     refreshLocalDrafts()
     refreshLocalTemplates()
     refreshRemoteDrafts()
+    applyMode.value = resolveDefaultApplyMode({
+      displayFormItemArr: props.displayFormItemArr,
+      hideFormItemArr: props.hideFormItemArr,
+    })
+    conversionPreview.value = null
+    conversionApplied.value = false
   }
   if (visible && !requirementText.value) {
     requirementText.value = sampleMap.receive
@@ -4790,6 +4905,12 @@ const previewFormalizeState = () => {
   }
 }
 
+watch(applyMode, () => {
+  conversionPreview.value = null
+  conversionApplied.value = false
+  resetFormalizePreview()
+})
+
 const previewDesignerState = () => {
   if (!draft.value) {
     message.warning('请先生成草稿')
@@ -4797,17 +4918,31 @@ const previewDesignerState = () => {
   }
   try {
     syncDictionaryConfirmationsToDraft({silent: true})
-    const preview = convertDslToDesignerStatePatch(draft.value.dsl, buildConversionContext())
+    const context = buildConversionContext()
+    const preview = applyMode.value === 'incremental'
+      ? buildIncrementalFieldPatch(draft.value.dsl, context)
+      : convertDslToDesignerStatePatch(draft.value.dsl, context)
     conversionPreview.value = preview
     conversionApplied.value = false
     resetFormalizePreview()
-    console.log('FormDesignDslConversionPreview', preview)
+    console.log('FormDesignDslConversionPreview', {
+      applyMode: applyMode.value,
+      preview,
+    })
     if (preview.errors.length > 0) {
       message.warning(`转换预览完成，发现 ${preview.errors.length} 个错误，暂不能应用`)
+    } else if (applyMode.value === 'incremental' && (preview.summary?.addCount || 0) === 0) {
+      message.warning('增量预览完成：没有可新增字段（同名均已跳过）')
     } else if (preview.warnings.length > 0) {
-      message.warning(`转换预览完成，发现 ${preview.warnings.length} 个警告`)
+      const addHint = applyMode.value === 'incremental'
+        ? `，将新增 ${preview.summary?.addCount || 0} 个字段`
+        : ''
+      message.warning(`转换预览完成，发现 ${preview.warnings.length} 个警告${addHint}`)
     } else {
-      message.success('转换预览完成')
+      const addHint = applyMode.value === 'incremental'
+        ? `，将新增 ${preview.summary?.addCount || 0} 个字段、跳过 ${preview.summary?.skipCount || 0} 个`
+        : ''
+      message.success(`转换预览完成${addHint}`)
     }
   } catch (error) {
     console.error('FormDesignDslConversionPreviewFailed', error)
@@ -4821,10 +4956,17 @@ const applyDesignerState = () => {
     return
   }
   if (!conversionPreview.value.canApply) {
-    message.warning('转换预览存在错误，暂不能应用')
+    if (conversionPreview.value.mode === 'incremental' && (conversionPreview.value.summary?.addCount || 0) === 0) {
+      message.warning('没有可增量补充的字段，请调整草稿或改用全量替换')
+    } else {
+      message.warning('转换预览存在错误，暂不能应用')
+    }
     return
   }
-  emit('apply-draft-patch', conversionPreview.value, buildApplyDraftContext())
+  emit('apply-draft-patch', conversionPreview.value, {
+    ...buildApplyDraftContext(),
+    applyMode: conversionPreview.value.mode || applyMode.value,
+  })
   conversionApplied.value = true
 }
 
@@ -6296,6 +6438,27 @@ const exportDraftDsl = () => {
   grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 8px;
   margin-bottom: 12px;
+}
+
+.apply-mode-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 10px 0 4px;
+}
+
+.apply-mode-label {
+  color: #4b5563;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.apply-mode-hint {
+  margin-bottom: 10px;
+  color: #6b7280;
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .conversion-detail-collapse {

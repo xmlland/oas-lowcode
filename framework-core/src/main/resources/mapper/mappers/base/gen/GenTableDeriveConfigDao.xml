@@ -1,0 +1,179 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jeestudio.bpm.mapper.base.gen.GenTableDeriveConfigDao">
+
+    <sql id="genTableDeriveConfigColumns">
+        a.id AS "id",
+        a.create_by AS "createBy.id",
+        a.create_date AS "createDate",
+        a.update_by AS "updateBy.id",
+        a.update_date AS "updateDate",
+        a.remarks AS "remarks",
+        a.del_flag AS "delFlag",
+        a.gen_table_id AS "genTableId",
+        a.source_mode AS "sourceMode",
+        a.source_sql AS "sourceSql",
+        a.schedule_cron AS "scheduleCron",
+        a.unique_keys AS "uniqueKeys",
+        a.sync_strategy AS "syncStrategy",
+        a.enabled AS "enabled",
+        a.partition_keys AS "partitionKeys",
+        a.bucket_keys AS "bucketKeys",
+        a.edit_open_mode AS "editOpenMode",
+        a.list_description AS "listDescription",
+        a.extend_json AS "extendJson",
+        a.last_run_time AS "lastRunTime",
+        a.last_run_status AS "lastRunStatus",
+        a.last_run_message AS "lastRunMessage"
+    </sql>
+
+    <select id="get" resultType="com.jeestudio.bpm.common.entity.gen.GenTableDeriveConfig">
+        SELECT
+            <include refid="genTableDeriveConfigColumns"/>
+        FROM gen_table_derive_config a
+        WHERE a.del_flag = '0'
+            AND a.id = #{id}
+    </select>
+
+    <select id="getByGenTableId" resultType="com.jeestudio.bpm.common.entity.gen.GenTableDeriveConfig">
+        SELECT
+            <include refid="genTableDeriveConfigColumns"/>
+        FROM gen_table_derive_config a
+        WHERE a.del_flag = '0'
+            AND a.gen_table_id = #{genTableId}
+        ORDER BY a.update_date DESC, a.create_date DESC
+        LIMIT 1
+    </select>
+
+    <select id="findList" resultType="com.jeestudio.bpm.common.entity.gen.GenTableDeriveConfig">
+        SELECT
+            <include refid="genTableDeriveConfigColumns"/>
+        FROM gen_table_derive_config a
+        WHERE a.del_flag = #{DEL_FLAG_NORMAL}
+        <if test="genTableId != null and genTableId != ''">
+            AND a.gen_table_id = #{genTableId}
+        </if>
+        ORDER BY a.update_date DESC, a.create_date DESC
+    </select>
+
+    <select id="findAllList" resultType="com.jeestudio.bpm.common.entity.gen.GenTableDeriveConfig">
+        SELECT
+            <include refid="genTableDeriveConfigColumns"/>
+        FROM gen_table_derive_config a
+        WHERE a.del_flag = #{DEL_FLAG_NORMAL}
+        ORDER BY a.update_date DESC, a.create_date DESC
+    </select>
+
+    <select id="findEnabledAsyncSummaryList" resultType="com.jeestudio.bpm.common.entity.gen.GenTableDeriveConfig">
+        SELECT
+            <include refid="genTableDeriveConfigColumns"/>
+        FROM gen_table_derive_config a
+        WHERE a.del_flag = '0'
+            AND a.enabled = '1'
+            AND a.source_mode = 'async_summary'
+        ORDER BY a.update_date DESC, a.create_date DESC
+    </select>
+
+    <insert id="insert">
+        INSERT INTO gen_table_derive_config(
+            id,
+            create_by,
+            create_date,
+            update_by,
+            update_date,
+            remarks,
+            del_flag,
+            gen_table_id,
+            source_mode,
+            source_sql,
+            schedule_cron,
+            unique_keys,
+            sync_strategy,
+            enabled,
+            partition_keys,
+            bucket_keys,
+            edit_open_mode,
+            list_description,
+            extend_json,
+            last_run_time,
+            last_run_status,
+            last_run_message
+        ) VALUES (
+            #{id},
+            #{createBy.id},
+            #{createDate},
+            #{updateBy.id},
+            #{updateDate},
+            #{remarks},
+            #{delFlag},
+            #{genTableId},
+            #{sourceMode},
+            #{sourceSql},
+            #{scheduleCron},
+            #{uniqueKeys},
+            #{syncStrategy},
+            #{enabled},
+            #{partitionKeys},
+            #{bucketKeys},
+            #{editOpenMode},
+            #{listDescription},
+            #{extendJson},
+            #{lastRunTime},
+            #{lastRunStatus},
+            #{lastRunMessage}
+        )
+    </insert>
+
+    <update id="update">
+        UPDATE gen_table_derive_config SET
+            update_by = #{updateBy.id},
+            update_date = #{updateDate},
+            remarks = #{remarks},
+            gen_table_id = #{genTableId},
+            source_mode = #{sourceMode},
+            source_sql = #{sourceSql},
+            schedule_cron = #{scheduleCron},
+            unique_keys = #{uniqueKeys},
+            sync_strategy = #{syncStrategy},
+            enabled = #{enabled},
+            partition_keys = #{partitionKeys},
+            bucket_keys = #{bucketKeys},
+            edit_open_mode = #{editOpenMode},
+            list_description = #{listDescription},
+            extend_json = #{extendJson},
+            last_run_time = #{lastRunTime},
+            last_run_status = #{lastRunStatus},
+            last_run_message = #{lastRunMessage}
+        WHERE id = #{id}
+    </update>
+
+    <update id="updateRunStatus">
+        UPDATE gen_table_derive_config SET
+            last_run_time = #{lastRunTime},
+            last_run_status = #{lastRunStatus},
+            last_run_message = #{lastRunMessage},
+            update_date = #{updateDate}
+        WHERE id = #{id}
+    </update>
+
+    <update id="delete">
+        DELETE FROM gen_table_derive_config
+        WHERE id = #{id}
+    </update>
+
+    <update id="deleteByLogic">
+        UPDATE gen_table_derive_config SET
+            del_flag = #{DEL_FLAG_DELETE}
+        WHERE id = #{id}
+    </update>
+
+    <update id="deleteByGenTableId">
+        UPDATE gen_table_derive_config SET
+            del_flag = '1'
+        WHERE gen_table_id = #{genTableId}
+    </update>
+
+    <select id="findUniqueByProperty" resultType="com.jeestudio.bpm.common.entity.gen.GenTableDeriveConfig" statementType="PREPARED">
+        SELECT * FROM gen_table_derive_config WHERE ${propertyName} = #{value}
+    </select>
+</mapper>

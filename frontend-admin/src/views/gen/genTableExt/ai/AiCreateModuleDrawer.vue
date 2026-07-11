@@ -2398,7 +2398,10 @@ const resetModuleFormalizeSaveResult = () => {
 }
 const invalidateModuleBatchCheckAndPreview = () => {
   moduleBatchCheckCheckedAt.value = ''
-  ensureAllModuleFormDraftsEnhanced()
+  // 异步增强：不阻塞 UI；正式化预览/确认前会再 await 一次
+  ensureAllModuleFormDraftsEnhanced().catch((e) => {
+    console.warn('[AI模块] 草稿增强失败', e)
+  })
   resetModuleFormalizePreview()
 }
 const getModuleFormDraftPreviewContext = () => {
@@ -3069,9 +3072,206 @@ const updateModuleFormDraft = (form = {}, index = 0, patch = {}) => {
   invalidateModuleBatchCheckAndPreview()
 }
 
+const existingGenTableCatalog = ref([])
+const existingGenTableCatalogLoadedAt = ref(0)
+/** formNo -> gen_table_column[]（editForm 真实列） */
+const genTableColumnCache = ref({})
+
+const loadExistingGenTableCatalog = async (force = false) => {
+  const now = Date.now()
+  if (!force && existingGenTableCatalog.value.length > 0 && now - existingGenTableCatalogLoadedAt.value < 5 * 60 * 1000) {
+    return existingGenTableCatalog.value
+  }
+  try {
+    // findDynamicList 使用 pageParam，返回 ResultJson.rows
+    const res = await postAction('gen/genTable/findDynamicList', {
+      pageParam: {
+        pageNo: 1,
+        pageSize: 500,
+        orderBy: 'update_date desc',
+      },
+    })
+    const rows = res?.rows || res?.data?.rows || res?.data?.list || res?.list || []
+    existingGenTableCatalog.value = (Array.isArray(rows) ? rows : []).map(row => ({
+      id: row.id,
+      genTableId: row.id,
+      formId: row.id,
+      formName: row.name,
+      name: row.name,
+      nameHint: row.name,
+      title: row.comments || row.name,
+      formTitle: row.comments || row.name,
+      comments: row.comments || '',
+      module: row.module || '',
+      // 占位字段仅用于名称匹配；真实数据列必须走 editForm → genColumns
+      fields: [],
+      genColumns: genTableColumnCache.value[row.name] || [],
+      source: 'existing-gen-table',
+    })).filter(item => item.name)
+    existingGenTableCatalogLoadedAt.value = now
+  } catch (e) {
+    console.warn('[AI模块] 加载已有表单目录失败', e)
+  }
+  return existingGenTableCatalog.value
+}
+
+/**
+ * 从已落库表单加载真实列定义（与设计器「配置列」同源：gen/genTable/editForm）
+ */
+const loadGenTableColumns = async (formNo = '', genTableId = '') => {
+  const name = normalizeText(formNo)
+  if (!name) {
+    return []
+  }
+  if (Array.isArray(genTableColumnCache.value[name]) && genTableColumnCache.value[name].length > 0) {
+    return genTableColumnCache.value[name]
+  }
+  try {
+    const payload = {formNo: name}
+    if (genTableId) {
+      payload.id = genTableId
+    } else {
+      const hit = existingGenTableCatalog.value.find(item => normalizeText(item.name) === name)
+      if (hit?.id) {
+        payload.id = hit.id
+      }
+    }
+    const res = await postAction('gen/genTable/editForm', payload)
+    // editForm：ResultJson.put("data", List<GenTableColumnView>)，axios 封装后多为 res.data
+    // 兼容：res.data（数组）/ res.data.data / res.rows
+    let columns = []
+    if (Array.isArray(res?.data)) {
+      columns = res.data
+    } else if (Array.isArray(res?.data?.data)) {
+      columns = res.data.data
+    } else if (Array.isArray(res?.rows)) {
+      columns = res.rows
+    } else if (Array.isArray(res)) {
+      columns = res
+    }
+    const list = columns.filter(col => col && (col.name || col.comments))
+    genTableColumnCache.value = {
+      ...genTableColumnCache.value,
+      [name]: list,
+    }
+    // 回写目录，便于后续 enrich 使用
+    existingGenTableCatalog.value = existingGenTableCatalog.value.map(item => {
+      if (normalizeText(item.name) === name) {
+        return {...item, genColumns: list, fields: list}
+      }
+      return item
+    })
+    return list
+  } catch (e) {
+    console.warn('[AI模块] 加载表单列失败', name, e)
+    return []
+  }
+}
+
+const collectModalSelectTargetFormNames = (dsl = {}) => {
+  const names = new Set()
+  toArray(dsl?.fields).forEach(field => {
+    const type = normalizeText(field.type || field.showType)
+    const isModal = ['modalSelect', 'gridselect', '自定义选择'].includes(type) || type === 'gridselect'
+    if (!isModal && field.type !== 'modalSelect') {
+      // 宽松：name 以 _id 结尾也预加载
+      if (!/_id$|_ids$/i.test(normalizeText(field.name))) {
+        return
+      }
+    }
+    const formNo = normalizeText(
+        field.form?.controlProps?.formNo
+        || field.controlProps?.formNo
+        || field.tableName
+        || field.targetFormNo
+        || field.targetFormName
+    )
+    // customer_id → 尝试 lims_customer 等，由 enrich 匹配；这里预加载目录内全部 lims_ 可在 hydrate 时做
+    if (formNo) {
+      names.add(formNo)
+    }
+  })
+  return Array.from(names)
+}
+
+/**
+ * 预加载：本模块可能关联到的已落库表真实列。
+ * - 显式 formNo
+ * - 同 module 前缀的已有表（如 lims_*）
+ */
+const hydrateGenColumnsForModuleContext = async (dslList = []) => {
+  await loadExistingGenTableCatalog()
+  const targets = new Set()
+  toArray(dslList).forEach(dsl => {
+    collectModalSelectTargetFormNames(dsl).forEach(name => targets.add(name))
+  })
+  // 同模块已有表全部预热（数量通常不大）
+  const moduleCode = normalizeText(moduleName.value || 'lims')
+  existingGenTableCatalog.value.forEach(item => {
+    if (moduleCode && normalizeText(item.module) === moduleCode) {
+      targets.add(item.name)
+    }
+    // 名称命中常见关联主干时也加载
+    if (/customer|site|item|order|sample|user|office/i.test(item.name || '')) {
+      targets.add(item.name)
+    }
+  })
+  const names = Array.from(targets).filter(Boolean)
+  // 并行限制：最多同时 6 个
+  const chunks = []
+  for (let i = 0; i < names.length; i += 6) {
+    chunks.push(names.slice(i, i + 6))
+  }
+  for (const chunk of chunks) {
+    await Promise.all(chunk.map(name => loadGenTableColumns(name)))
+  }
+}
+
+const mergeModuleFormsWithExistingCatalog = (moduleForms = []) => {
+  const map = new Map()
+  toArray(moduleForms).forEach((form, index) => {
+    const name = normalizeText(form.formName || form.name || form.nameHint || form.dsl?.form?.name)
+    const key = name || getModuleFormId(form, index)
+    if (key) {
+      const cachedColumns = genTableColumnCache.value[name] || form.genColumns || []
+      map.set(key, {
+        ...form,
+        genColumns: cachedColumns.length > 0 ? cachedColumns : (form.genColumns || []),
+      })
+    }
+  })
+  existingGenTableCatalog.value.forEach(form => {
+    const key = normalizeText(form.name)
+    if (!key) {
+      return
+    }
+    const cachedColumns = genTableColumnCache.value[key] || form.genColumns || []
+    if (!map.has(key)) {
+      map.set(key, {
+        ...form,
+        genColumns: cachedColumns,
+        fields: cachedColumns.length > 0 ? cachedColumns : form.fields,
+      })
+    } else {
+      // 模块草稿表若尚未有 DSL 字段，用真实列补全
+      const current = map.get(key)
+      if (cachedColumns.length > 0) {
+        map.set(key, {
+          ...current,
+          genColumns: cachedColumns,
+          id: current.id || form.id,
+          genTableId: form.genTableId || form.id,
+        })
+      }
+    }
+  })
+  return Array.from(map.values())
+}
+
 const buildModuleFormDslEnhanceContext = (form = {}, index = 0) => ({
   currentFormId: getModuleFormId(form, index),
-  moduleForms: moduleDesignDraft.value.forms,
+  // 合并：本模块蓝图表单 + 已落库 gen_table（含真实 genColumns）
+  moduleForms: mergeModuleFormsWithExistingCatalog(moduleDesignDraft.value.forms),
   moduleRelations: moduleDesignDraft.value.relations,
   moduleDesign: moduleDesignDraft.value,
 })
@@ -3080,11 +3280,12 @@ const enrichModuleFormDsl = (dsl = {}, form = {}, index = 0) => {
   return enrichDslModalSelectFields(dsl, buildModuleFormDslEnhanceContext(form, index))
 }
 
-const ensureModuleFormDraftDslEnhanced = (form = {}, index = 0) => {
+const ensureModuleFormDraftDslEnhanced = async (form = {}, index = 0) => {
   const draft = getModuleFormDraft(form, index)
   if (!draft.dsl) {
     return null
   }
+  await hydrateGenColumnsForModuleContext([draft.dsl])
   const enhancedDsl = enrichModuleFormDsl(draft.dsl, form, index)
   if (JSON.stringify(enhancedDsl) !== JSON.stringify(draft.dsl)) {
     updateModuleFormDraft(form, index, {
@@ -3097,10 +3298,27 @@ const ensureModuleFormDraftDslEnhanced = (form = {}, index = 0) => {
   return enhancedDsl
 }
 
-const ensureAllModuleFormDraftsEnhanced = () => {
-  moduleForms.value.forEach((form, index) => {
-    ensureModuleFormDraftDslEnhanced(form, index)
-  })
+const ensureAllModuleFormDraftsEnhanced = async () => {
+  const dslList = moduleForms.value
+      .map((form, index) => getModuleFormDraft(form, index)?.dsl)
+      .filter(Boolean)
+  await hydrateGenColumnsForModuleContext(dslList)
+  for (let index = 0; index < moduleForms.value.length; index += 1) {
+    const form = moduleForms.value[index]
+    const draft = getModuleFormDraft(form, index)
+    if (!draft?.dsl) {
+      continue
+    }
+    const enhancedDsl = enrichModuleFormDsl(draft.dsl, form, index)
+    if (JSON.stringify(enhancedDsl) !== JSON.stringify(draft.dsl)) {
+      updateModuleFormDraft(form, index, {
+        dsl: enhancedDsl,
+        meta: {
+          modalSelectEnhancedAt: new Date().toISOString(),
+        },
+      })
+    }
+  }
 }
 
 const createModuleFormGenerateErrorIssue = (error = {}) => ({
@@ -3293,9 +3511,9 @@ const batchGenerateModuleFormDrafts = async (mode = 'pending') => {
   }
 }
 
-const viewModuleFormDraft = (form = {}, index = 0) => {
+const viewModuleFormDraft = async (form = {}, index = 0) => {
   const formId = getModuleFormId(form, index)
-  ensureModuleFormDraftDslEnhanced(form, index)
+  await ensureModuleFormDraftDslEnhanced(form, index)
   const designForm = moduleDesignDraft.value.forms.find(item => item.id === formId)
   moduleFormDraftPreviewTarget.value = {
     formId,
@@ -3306,13 +3524,13 @@ const viewModuleFormDraft = (form = {}, index = 0) => {
   console.log('ModuleFormDraft', designForm || getModuleFormDraft(form, index))
 }
 
-const checkModuleFormDraft = (form = {}, index = 0) => {
+const checkModuleFormDraft = async (form = {}, index = 0) => {
   const draft = getModuleFormDraft(form, index)
   if (!draft.dsl) {
     message.warning('该表单还没有生成 FormDesignDSL，生成后才能体检。')
     return
   }
-  const enhancedDsl = ensureModuleFormDraftDslEnhanced(form, index) || draft.dsl
+  const enhancedDsl = await ensureModuleFormDraftDslEnhanced(form, index) || draft.dsl
   const issues = validateFormDesignDslSchema(enhancedDsl)
   console.log('ModuleFormDraftCheckTarget', enhancedDsl)
   console.log('ModuleFormDraftCheckIssues', issues)
@@ -3349,7 +3567,7 @@ const previewModuleFormalizeState = async () => {
     message.warning(moduleFormalizePreviewEmptyText.value)
     return
   }
-  ensureAllModuleFormDraftsEnhanced()
+  await ensureAllModuleFormDraftsEnhanced()
   await refreshModuleExistingDictionaryMatches({force: true})
   if (!canBuildModuleFormalizePreview.value) {
     message.warning(moduleFormalizePreviewEmptyText.value)
@@ -3502,7 +3720,7 @@ const buildModuleFormalizeSavePayload = (formPlan = {}) => {
     hideFormItemArr: [],
     fixedArr: [],
     currentFormId: designForm.id,
-    moduleForms: moduleDesignDraft.value.forms,
+    moduleForms: mergeModuleFormsWithExistingCatalog(moduleDesignDraft.value.forms),
     moduleRelations: moduleDesignDraft.value.relations,
     moduleDesign: moduleDesignDraft.value,
   })
@@ -3513,6 +3731,11 @@ const buildModuleFormalizeSavePayload = (formPlan = {}) => {
   const formModel = {
     ...baseFormModel,
     ...(patch.formPatch || {}),
+  }
+  // 子表主表推断结果回写到 formModel（parentTable / parentTableFk）
+  if (patch.formPatch?.parentTable && !formModel.parentTable) {
+    formModel.parentTable = patch.formPatch.parentTable
+    formModel.parentTableFk = patch.formPatch.parentTableFk || 'parent_id'
   }
   const finalFormPropsModel = {
     ...formPropsModel,
@@ -3890,7 +4113,7 @@ const getModuleFormDraftConfirmIssues = (draft = {}) => {
   return mergeModuleFormDraftIssues(draft.issues, validateFormDesignDslSchema(draft.dsl))
 }
 
-const confirmModuleFormDraft = (form = {}, index = 0, options = {}) => {
+const confirmModuleFormDraft = async (form = {}, index = 0, options = {}) => {
   const silent = options.silent === true
   const draft = getModuleFormDraft(form, index)
   if (!draft.dsl) {
@@ -3899,7 +4122,7 @@ const confirmModuleFormDraft = (form = {}, index = 0, options = {}) => {
     }
     return false
   }
-  const enhancedDsl = ensureModuleFormDraftDslEnhanced(form, index) || draft.dsl
+  const enhancedDsl = await ensureModuleFormDraftDslEnhanced(form, index) || draft.dsl
   const confirmIssues = getModuleFormDraftConfirmIssues({
     ...draft,
     dsl: enhancedDsl,
@@ -4119,7 +4342,7 @@ const togglePageForm = (page = {}, checked = false) => {
   markModuleBlueprintDirty()
 }
 
-const confirmModuleBlueprint = () => {
+const confirmModuleBlueprint = async () => {
   if (!moduleMaterialReady.value) {
     message.warning('请先完成模块蓝图识别。')
     return
@@ -4128,6 +4351,8 @@ const confirmModuleBlueprint = () => {
     message.warning('当前蓝图还有结构错误，请先处理后再确认。')
     return
   }
+  // 确认蓝图时预加载已有 gen_table，供关联选择匹配客户/点位/项目等表
+  await loadExistingGenTableCatalog()
   syncModuleFormDraftSlots()
   moduleBlueprintConfirmed.value = true
   message.success('模块蓝图已确认，可以进入表单草稿生成。')
@@ -4578,6 +4803,8 @@ const printModuleDesign = () => {
 watch(() => props.visible, (visible) => {
   if (visible) {
     resetInitialContext()
+    // 打开抽屉时后台加载已有表单目录，提升关联表匹配准确度
+    loadExistingGenTableCatalog().catch(() => {})
   }
 }, {immediate: true})
 

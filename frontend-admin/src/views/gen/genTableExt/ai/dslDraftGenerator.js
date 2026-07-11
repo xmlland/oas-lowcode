@@ -37,7 +37,7 @@ const ZFORM_JAVA_TYPE = 'com.jeestudio.bpm.common.entity.common.Zform'
 const TYPE_CONFIG = {
   text: {showType: 'input', jdbcType: 'varchar', javaType: 'String'},
   textarea: {showType: 'textarea', jdbcType: 'longtext', javaType: 'String'},
-  integer: {showType: 'integer', jdbcType: 'int', javaType: 'Integer'},
+  integer: {showType: 'integer', jdbcType: 'integer', javaType: 'Integer'},
   decimal: {showType: 'decimal', jdbcType: 'decimal', javaType: 'BigDecimal'},
   select: {showType: 'select', jdbcType: 'varchar', javaType: 'String'},
   radio: {showType: 'radiobox', jdbcType: 'varchar', javaType: 'String'},
@@ -327,6 +327,7 @@ const buildField = ({label, index, style, usedNames}) => {
       minWidth: span === 24 ? 180 : 140,
       dict: '',
       queryFieldType: isQuery ? inferQueryType(type) : '',
+      // dictType 在后续绑定字典后由 dslToDesignerState/buildListConfig 补齐
       queryFieldProps: isQuery ? {
         placeholder: label,
         formatPatter: type === 'date' ? 'yyyy-MM-dd' : undefined,

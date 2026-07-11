@@ -142,10 +142,12 @@
       align-items: center;
     }
 
+    /* 设计态：内部输入/日期控件不抢点击，点字段即可切换右侧配置 */
     .dynamic-form-item-content {
       width: calc(100% - 20px);
       display: inline-block;
       margin-right: 4px;
+      pointer-events: none;
     }
 
 

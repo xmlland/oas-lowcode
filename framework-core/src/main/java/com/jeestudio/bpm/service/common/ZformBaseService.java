@@ -26,6 +26,7 @@ import com.jeestudio.bpm.common.entity.common.persistence.Page;
 import com.jeestudio.bpm.common.entity.gen.GenTable;
 import com.jeestudio.bpm.common.entity.gen.GenTableColumn;
 import com.jeestudio.bpm.common.entity.gen.GenTableColumnFormItemConfig;
+import com.jeestudio.bpm.common.entity.gen.GenTableDeriveConfig;
 import com.jeestudio.bpm.common.entity.gen.GenTableExtRuleManyToMany;
 import com.jeestudio.bpm.common.entity.system.*;
 import com.jeestudio.bpm.common.entity.tagtree.TagTree;
@@ -88,6 +89,14 @@ public class ZformBaseService extends ActService<ZformDao, Zform> {
 
     /*@Value("${spring.datasource.dbType}")*/
     protected String dbType = DbTypeUtil.getDbType();
+
+    private static final String[] SOURCE_SQL_DANGEROUS_KEYWORDS = {
+            ";", "--", "/*", "*/",
+            " insert ", " update ", " delete ", " drop ", " truncate ",
+            " alter ", " create ", " execute ", " exec ", " merge ",
+            " grant ", " revoke ", " call ", " replace ", " into ",
+            " outfile ", " dumpfile "
+    };
 
     @Autowired
     protected ZformDao zformDao;
@@ -245,6 +254,10 @@ public class ZformBaseService extends ActService<ZformDao, Zform> {
         zform.setId(id);
         zform.setFormNo(genTable.getName());
         zform.setFormNoExt(genTable.getFormNoExt());
+        boolean runtimeSourceSqlView = isRuntimeSourceSqlView(genTable);
+        if (runtimeSourceSqlView) {
+            zform.setTableOrViewName(getRuntimeTableOrViewName(genTable));
+        }
         String sqlFriendly = genTable.getSqlColumnsFriendly();
         sqlFriendly += " " + StringUtil.getString(genTable.getSqlColumnsFriendlyExt());
 
@@ -268,7 +281,7 @@ public class ZformBaseService extends ActService<ZformDao, Zform> {
             }
         }
         zform.getSqlMap().put(GenTable.SQLMAP_SQLCOLUMNS_FRIENDLY, sqlFriendly + sql);
-        if (StringUtil.isNotEmpty(genTable.getSqlJoins()) || StringUtil.isNotEmpty(genTable.getSqlJoinsExt())) {
+        if (!runtimeSourceSqlView && (StringUtil.isNotEmpty(genTable.getSqlJoins()) || StringUtil.isNotEmpty(genTable.getSqlJoinsExt()))) {
             zform.getSqlMap().put(GenTable.SQLMAP_SQLJOINS, StringUtil.getString(genTable.getSqlJoins()) + " " + StringUtil.getString(genTable.getSqlJoinsExt()));
         }
         AroundDaoI aroundDao = AroundUtil.getAroundDaoI(genTable);
@@ -1210,6 +1223,10 @@ public class ZformBaseService extends ActService<ZformDao, Zform> {
 
     public Page<Zform> findPageMap(Page<Zform> page, Zform zform, String path, String loginName, GenTable genTable, String traceFlag, String parentId, String extFlag) throws Exception {
         zform.setFormNoExt(genTable.getFormNoExt());
+        boolean runtimeSourceSqlView = isRuntimeSourceSqlView(genTable);
+        if (runtimeSourceSqlView) {
+            zform.setTableOrViewName(getRuntimeTableOrViewName(genTable));
+        }
         if (StringUtil.isEmpty(path)) path = PATH_QUERY;
         String processDefinitionCategory = genTable.getProcessDefinitionCategory();
         String sqlFriendly = genTable.getSqlColumnsFriendly();
@@ -1221,7 +1238,7 @@ public class ZformBaseService extends ActService<ZformDao, Zform> {
             sqlFriendly = genTable.getExtSql02();
         }
         zform.getSqlMap().put(GenTable.SQLMAP_SQLCOLUMNS_FRIENDLY, this.replaceWithExtSqlPairMap(sqlFriendly, zform.getPageParam() != null ? zform.getPageParam().getExtSqlPairMap() : null));
-        if (StringUtil.isNotEmpty(genTable.getSqlJoins()) || StringUtil.isNotEmpty(genTable.getSqlJoinsExt())) {
+        if (!runtimeSourceSqlView && (StringUtil.isNotEmpty(genTable.getSqlJoins()) || StringUtil.isNotEmpty(genTable.getSqlJoinsExt()))) {
             zform.getSqlMap().put(GenTable.SQLMAP_SQLJOINS, this.replaceWithExtSqlPairMap(StringUtil.getString(genTable.getSqlJoins()) + " " + StringUtil.getString(genTable.getSqlJoinsExt()), zform.getPageParam() != null ? zform.getPageParam().getExtSqlPairMap() : null));
         }
         if (StringUtil.isEmpty(page.getOrderBy()) && StringUtil.isNotEmpty(genTable.getSqlSort())) {
@@ -1312,7 +1329,7 @@ public class ZformBaseService extends ActService<ZformDao, Zform> {
                     zform.getSqlMap().put(GenTable.SQLMAP_SQLCOLUMNS_FRIENDLY, this.replaceWithExtSqlPairMap(sqlFriendly, zform.getPageParam() != null ? zform.getPageParam().getExtSqlPairMap() : null));
                     pageResult = datahouseService.findPageMap(page, zform);
                 } else {
-                    pageResult = findPageMap(page, zform, genTable.getName());
+                    pageResult = findPageMap(page, zform, runtimeSourceSqlView ? getRuntimeTableOrViewName(genTable) : genTable.getName());
                 }
                 return pageResult;
             }
@@ -2135,6 +2152,48 @@ public class ZformBaseService extends ActService<ZformDao, Zform> {
             logger.info("Set sql map for zform:" + zform.getFormNo());
             logger.error("Error while set sql map for zform:" + ExceptionUtils.getStackTrace(e));
         }
+    }
+
+    /**
+     * 判断当前表单是否使用运行时 SQL 作为数据来源。
+     */
+    protected boolean isRuntimeSourceSqlView(GenTable genTable) {
+        GenTableDeriveConfig deriveConfig = genTable == null ? null : genTable.getDeriveConfig();
+        return deriveConfig != null
+                && GenTableDeriveConfig.SOURCE_MODE_SYNC_VIEW.equals(deriveConfig.getSourceMode())
+                && StringUtil.isNotBlank(deriveConfig.getSourceSql());
+    }
+
+    /**
+     * 将来源 SQL 包装为子查询来源，外层仍统一使用别名 a 承接查询条件、分页和排序。
+     */
+    protected String getRuntimeTableOrViewName(GenTable genTable) {
+        GenTableDeriveConfig deriveConfig = genTable == null ? null : genTable.getDeriveConfig();
+        if (deriveConfig == null || StringUtil.isBlank(deriveConfig.getSourceSql())) {
+            return genTable == null ? "" : genTable.getName();
+        }
+        return "(" + normalizeRuntimeSourceSql(deriveConfig.getSourceSql()) + ")";
+    }
+
+    /**
+     * 运行时来源 SQL 只允许查询语句，禁止把 DDL/DML 写入动态表单查询链路。
+     */
+    protected String normalizeRuntimeSourceSql(String sourceSql) {
+        String normalized = sourceSql == null ? "" : sourceSql.trim();
+        if (StringUtil.isBlank(normalized)) {
+            throw new RuntimeException("视图表单来源SQL不能为空");
+        }
+        String lowerSql = normalized.toLowerCase(Locale.ROOT);
+        String checkSql = " " + lowerSql.replaceAll("\\s+", " ") + " ";
+        if (!checkSql.startsWith(" select ") && !checkSql.startsWith(" with ")) {
+            throw new RuntimeException("视图表单来源SQL只允许使用查询语句");
+        }
+        for (String keyword : SOURCE_SQL_DANGEROUS_KEYWORDS) {
+            if (checkSql.contains(keyword)) {
+                throw new RuntimeException("视图表单来源SQL包含不允许的内容: " + keyword.trim());
+            }
+        }
+        return normalized;
     }
 
     /**

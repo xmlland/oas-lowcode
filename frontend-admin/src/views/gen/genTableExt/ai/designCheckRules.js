@@ -392,6 +392,81 @@ const checkQueryPlaceholderMissing = (fields, listColumns) => {
       }))
 }
 
+const isSelectLikeQueryField = (field = {}, list = {}) => {
+  const queryFieldType = normalizeText(list.queryFieldType)
+  const showType = normalizeText(field.showType || field.type)
+  return queryFieldType === 'select'
+      || ['select', 'radio', 'checkbox', 'radiobox'].includes(showType)
+}
+
+const checkQuerySelectDictMissing = (fields, listColumns) => {
+  return fields
+      .map(field => ({field, listColumn: getFieldListColumn(field, listColumns)}))
+      .map(({field, listColumn}) => ({field, list: getEffectiveList(field, listColumn)}))
+      .filter(({list}) => list.isQuery)
+      .filter(({field, list}) => isSelectLikeQueryField(field, list))
+      .filter(({field}) => !isRelationSelect(field))
+      // 关键：queryFieldProps.dictType 为空就会导致查询下拉无数据
+      .filter(({list}) => isEmpty(list.queryFieldProps?.dictType))
+      .map(({field, list}) => {
+        const dictType = normalizeText(field.dictType || list.dict || field.list?.dict || '')
+        return createIssue({
+          id: `query-select-dict-missing:${field.name}`,
+          level: LEVEL_WARNING,
+          title: '查询下拉缺少 dictType',
+          field,
+          description: '列表查询使用了 select，但 queryFieldProps.dictType 为空。DynamicQueryField 优先读 queryFieldProps，不会回退到列 dictType，导致查询下拉无数据。',
+          suggestion: dictType
+              ? `建议将 queryFieldProps.dictType 设置为 ${dictType}。`
+              : '建议为该查询下拉补充字典编码，并写入 queryFieldProps.dictType。',
+          fixable: Boolean(dictType),
+          fix: dictType ? {
+            type: 'updateListConfig',
+            fieldName: field.name,
+            patch: {
+              dict: dictType,
+              queryFieldProps: {
+                placeholder: list.queryFieldProps?.placeholder || field.label || field.name,
+                dictType,
+              },
+            },
+          } : null,
+        })
+      })
+}
+
+const FIXED_JAVA_FIELD_BY_NAME = {
+  id: 'id',
+  status: 'status',
+  remarks: 'remarks',
+  owner_code: 'ownerCode',
+  del_flag: 'delFlag',
+  create_by: 'createBy.id',
+  create_date: 'createDate',
+  update_by: 'updateBy.id',
+  update_date: 'updateDate',
+  sort: 'sort',
+}
+
+const checkFixedJavaFieldMismatch = (fields) => {
+  return fields
+      .filter(field => FIXED_JAVA_FIELD_BY_NAME[normalizeText(field.name)])
+      .filter(field => {
+        const expected = FIXED_JAVA_FIELD_BY_NAME[normalizeText(field.name)]
+        const actual = normalizeText(field.javaField || field.raw?.column?.javaField || '')
+        return actual && actual !== expected
+      })
+      .map(field => createIssue({
+        id: `fixed-java-field-mismatch:${field.name}`,
+        level: LEVEL_WARNING,
+        title: '固定字段 javaField 不正确',
+        field,
+        description: `字段 ${field.name} 在 Zform 实体上有固定属性，javaField 应为 ${FIXED_JAVA_FIELD_BY_NAME[normalizeText(field.name)]}，当前为 ${field.javaField || field.raw?.column?.javaField || '空'}。`,
+        suggestion: `请将属性名称改为 ${FIXED_JAVA_FIELD_BY_NAME[normalizeText(field.name)]}，不要使用 s0x 槽位。`,
+        fixable: false,
+      }))
+}
+
 export const checkFormDesignDsl = (dsl = {}) => {
   const fields = toArray(dsl.fields)
   const listColumns = toArray(dsl.list?.columns)
@@ -409,6 +484,8 @@ export const checkFormDesignDsl = (dsl = {}) => {
       .concat(checkNumberListAlign(fields, listColumns))
       .concat(checkDateListAlign(fields, listColumns))
       .concat(checkQueryPlaceholderMissing(fields, listColumns))
+      .concat(checkQuerySelectDictMissing(fields, listColumns))
+      .concat(checkFixedJavaFieldMismatch(fields))
 }
 
 export const summarizeDesignIssues = (issues = []) => {

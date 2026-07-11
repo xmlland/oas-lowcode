@@ -38,8 +38,11 @@ public class PostgreGenDialect extends OracleGenDialect {
     @Override
     public String[] getModifyColumnSql(String tableName, GenTableColumn genTableColumn) {
         List<String> sqlList = new ArrayList<>();
-        sqlList.add(StrUtil.format("alter table {} alter {} type {}", tableName, genTableColumn.getName(), this.getJdbcType(genTableColumn)));
-        sqlList.add(StrUtil.format("comment on column {}.{} is  '{}'", tableName, genTableColumn.getName(), genTableColumn.getComments()));
+        // PostgreSQL 要求 ALTER COLUMN 关键字；缺 COLUMN 会被 Druid 解析为 syntax error / sql injection
+        sqlList.add(StrUtil.format("alter table {} alter column {} type {}",
+                tableName, genTableColumn.getName(), this.getJdbcType(genTableColumn)));
+        sqlList.add(StrUtil.format("comment on column {}.{} is  '{}'",
+                tableName, genTableColumn.getName(), genTableColumn.getComments()));
         return sqlList.toArray(new String[0]);
     }
 

@@ -54,6 +54,16 @@
                     <u-select v-else :disabled="true" defaultValue="" v-model:value="formModel.tableType" placeholder="" value-field="value" text-field="text" :option-data="childTableOptionData"/>
                   </a-form-item>
                 </a-col>
+                <a-col :span="24">
+                  <div class="derive-source-row">
+                    <a-form-item name="deriveConfig.sourceMode" label="表或视图" class="derive-source-form-item">
+                      <div class="derive-source-control">
+                        <u-select :disabled="disabled" defaultValue="normal" v-model:value="formModel.deriveConfig.sourceMode" value-field="value" text-field="text" :option-data="deriveSourceModeOptionData"/>
+                        <a-button size="small" @click="deriveConfigModalVisible = true">配置</a-button>
+                      </div>
+                    </a-form-item>
+                  </div>
+                </a-col>
                 <a-col :span="24" v-show="formModel.module === MODULE_DATAHOUSE">
                   <a-form-item name="blockChainParam2" label="唯一键">
                     <u-input :disabled="disabled" defaultValue="" v-model:value="formModel.blockChainParam2" placeholder="field1,datefiled"/>
@@ -128,7 +138,7 @@
                            key="drag-item-key"
                            v-show="displayFormItemArr.length==0"
                       >+</div>
-                        <a-col class="dynamic-form-item" v-bind:key="index" v-for="(item,index) in displayFormItemArr"
+                        <a-col class="dynamic-form-item" :key="item.id || ('display-' + index)" v-for="(item,index) in displayFormItemArr"
                                draggable="true"
                                @dragstart="dragstartDynamicItem($event,item,index,'display')"
                                @dragenter="dragenterDynamicItem($event,item,index,'display')"
@@ -137,7 +147,7 @@
                                :class="[item.id=== currentFormItem.id?'selected':'',isRender(item)?'render-display':'render-none']"
                                @click="clickDynamicItem(item)"
                                v-bind="item.colProps.props"
-                               style="transition: all 1s" >
+                               style="transition: all 0.15s" >
                           <a-form-item style="" v-bind="item.formItemProps.props"
                                        :rules="item.formItemProps.rules.concat(item.formItemProps.unique==='1'?[ uniqueValidator(formModel.name,item.formItemProps.label,formModel.id)]:[])">
                             <div class="dynamic-form-item-content">
@@ -170,7 +180,7 @@
                            key="drag-item-key"
                            v-show="hideFormItemArr.length==0"
                       >+</div>
-                        <a-col class="dynamic-form-item" v-bind:key="index" v-for="(item,index) in hideFormItemArr"
+                        <a-col class="dynamic-form-item" :key="item.id || ('hide-' + index)" v-for="(item,index) in hideFormItemArr"
                                draggable="true"
                                @dragstart="dragstartDynamicItem($event,item,index,'hide')"
                                @dragenter="dragenterDynamicItem($event,item,index,'hide')"
@@ -179,7 +189,7 @@
                                :class="[item.id === currentFormItem.id?'selected':'',isRender(item)?'render-display':'render-none']"
                                @click="clickDynamicItem(item)"
                                v-bind="item.colProps.props"
-                               style="transition: all 1s">
+                               style="transition: all 0.15s">
                           <a-form-item v-bind="item.formItemProps.props"
                                        :rules="item.formItemProps.rules.concat(item.formItemProps.unique==='1'?[ uniqueValidator(formModel.name,item.formItemProps.label,formModel.id)]:[])">
                             <div class="dynamic-form-item-content">
@@ -342,6 +352,116 @@
     </a-tabs>
 
   </u-form>
+  <a-modal
+      v-model:visible="deriveConfigModalVisible"
+      title="数据来源配置"
+      width="760px"
+      wrapClassName="derive-config-modal-wrap"
+      :body-style="{ padding: '16px 20px 12px' }"
+      :destroyOnClose="false"
+      @ok="deriveConfigModalVisible = false"
+      @cancel="deriveConfigModalVisible = false"
+  >
+    <div class="derive-config-modal">
+      <div class="derive-config-tip">
+        <a-tag color="cyan">{{ currentDeriveSourceModeText }}</a-tag>
+        <span>{{ currentDeriveSourceModeDesc }}</span>
+      </div>
+      <u-form v-model:value="formModel" v-model:disabled="disabled" :label-width="90" setFormInjectKey="">
+        <a-row :gutter="16">
+          <a-col :span="24">
+            <a-form-item name="deriveConfig.sourceMode" label="表或视图">
+              <u-select :disabled="disabled" defaultValue="normal" v-model:value="formModel.deriveConfig.sourceMode" value-field="value" text-field="text" :option-data="deriveSourceModeOptionData"/>
+            </a-form-item>
+          </a-col>
+          <template v-if="formModel.deriveConfig.sourceMode !== SOURCE_MODE_NORMAL">
+            <a-col :span="24">
+              <a-form-item name="deriveConfig.sourceSql" label="来源SQL">
+                <u-input :disabled="disabled" :textarea="true" :autoSize="{minRows: 8, maxRows: 12}" :maxlength="4000" v-model:value="formModel.deriveConfig.sourceSql" placeholder="填写用于视图或统计表读取数据的查询 SQL"/>
+              </a-form-item>
+            </a-col>
+            <a-col :span="24">
+              <div class="derive-parse-actions">
+                <a-button :loading="deriveParseLoading" :disabled="disabled || !formModel.deriveConfig.sourceSql" @click="parseDeriveSourceSqlFields">解析字段</a-button>
+                <a-button type="primary" :disabled="disabled || selectedAvailableDeriveFields.length === 0" @click="applyParsedDeriveFields">应用选中字段</a-button>
+                <span class="derive-parse-summary" v-if="deriveParsedFields.length">
+                  已解析 {{ deriveParsedFields.length }} 个字段，可新增 {{ availableDeriveParsedFields.length }} 个
+                </span>
+              </div>
+              <div class="derive-field-panel" v-if="deriveParsedFields.length">
+                <div class="derive-field-head">
+                  <a-checkbox
+                      :checked="isAllAvailableDeriveFieldsSelected"
+                      :indeterminate="isPartialDeriveFieldsSelected"
+                      :disabled="availableDeriveParsedFields.length === 0"
+                      @change="toggleAllParsedDeriveFields"
+                  >
+                    字段推导结果
+                  </a-checkbox>
+                  <span>同名字段默认跳过，应用后仍需保存表单配置。</span>
+                </div>
+                <div class="derive-field-list">
+                  <div class="derive-field-row" v-for="field in deriveParsedFields" :key="field.name">
+                    <a-checkbox
+                        :checked="deriveSelectedFieldNames.includes(field.name)"
+                        :disabled="field.exists"
+                        @change="event => toggleParsedDeriveField(field, event)"
+                    />
+                    <div class="derive-field-main">
+                      <div class="derive-field-title">
+                        <span>{{ field.label || field.name }}</span>
+                        <code>{{ field.name }}</code>
+                      </div>
+                      <div class="derive-field-meta">
+                        <span>{{ field.jdbcType || '-' }}</span>
+                        <span>{{ field.showType === 'dateselect' ? '日期' : '文本/数字' }}</span>
+                      </div>
+                    </div>
+                    <a-tag v-if="field.exists">已存在</a-tag>
+                    <a-tag v-else-if="field.hidden" color="default">隐藏</a-tag>
+                    <a-tag v-else-if="field.dictCandidate" color="blue">字典候选</a-tag>
+                  </div>
+                </div>
+              </div>
+            </a-col>
+          </template>
+          <template v-if="formModel.deriveConfig.sourceMode === SOURCE_MODE_ASYNC_SUMMARY">
+            <a-col :span="12">
+              <a-form-item name="deriveConfig.scheduleCron" label="调度Cron">
+                <u-input :disabled="disabled" v-model:value="formModel.deriveConfig.scheduleCron" placeholder="例如：0 0/30 * * * ?"/>
+                <div class="derive-cron-examples">
+                  <span>每天0点：0 0 0 * * ?</span>
+                  <span>每小时：0 0 * * * ?</span>
+                  <span>每5分钟：0 0/5 * * * ?</span>
+                </div>
+              </a-form-item>
+            </a-col>
+            <a-col :span="12">
+              <a-form-item name="deriveConfig.syncStrategy" label="同步策略">
+                <u-select :disabled="disabled" defaultValue="upsert" v-model:value="formModel.deriveConfig.syncStrategy" value-field="value" text-field="text" :option-data="deriveSyncStrategyOptionData"/>
+              </a-form-item>
+            </a-col>
+            <a-col :span="24">
+              <a-form-item name="deriveConfig.uniqueKeys" label="唯一键">
+                <u-input :disabled="disabled" defaultValue="" v-model:value="formModel.deriveConfig.uniqueKeys" placeholder="例如：contract_id,month"/>
+              </a-form-item>
+            </a-col>
+            <a-col :span="24">
+              <div class="derive-sync-actions">
+                <a-button type="primary" :loading="deriveSyncLoading" :disabled="disabled || !(formModel.id || table.id)" @click="syncDeriveSummaryNow">立即同步</a-button>
+                <span class="derive-sync-status" v-if="formModel.deriveConfig.lastRunTime">
+                  最近执行：{{ formModel.deriveConfig.lastRunTime }}
+                  <a-tag :color="formModel.deriveConfig.lastRunStatus === 'success' ? 'green' : 'red'">{{ formModel.deriveConfig.lastRunStatus || '-' }}</a-tag>
+                  {{ formModel.deriveConfig.lastRunMessage || '' }}
+                </span>
+                <span class="derive-sync-status" v-else>保存配置后可手动执行一次统计同步。</span>
+              </div>
+            </a-col>
+          </template>
+        </a-row>
+      </u-form>
+    </div>
+  </a-modal>
   <ai-design-check-drawer
       v-model:visible="aiCheckDrawerVisible"
       :issues="aiDesignIssues"
@@ -416,14 +536,49 @@ import {buildSaveReviewResult} from "@/views/gen/genTableExt/ai/saveReview";
 import {listRemoteDrafts, markRemoteDraftFormalSaved} from "@/views/gen/genTableExt/ai/remoteDraftProvider";
 
 const MODULE_DATAHOUSE = 'datahouse'
+const SOURCE_MODE_NORMAL = 'normal'
+const SOURCE_MODE_SYNC_VIEW = 'sync_view'
+const SOURCE_MODE_ASYNC_SUMMARY = 'async_summary'
+
+const deriveSourceModeOptionData = [
+  {value: SOURCE_MODE_NORMAL, text: '普通表'},
+  {value: SOURCE_MODE_SYNC_VIEW, text: '视图'},
+  {value: SOURCE_MODE_ASYNC_SUMMARY, text: '统计表'},
+]
+
+const deriveSyncStrategyOptionData = [
+  {value: 'replace', text: '全量替换'},
+  {value: 'upsert', text: '按唯一键更新'},
+  {value: 'append', text: '追加写入'},
+]
 
 let formModel = ref({
   blockChainParam1: '',
   blockChainParam2: '',
+  blockChainParam3: '',
+  blockChainParam4: '',
   blockChainParam5: '1',
   blockChainParam6: '',
+  deriveConfig: {
+    sourceMode: SOURCE_MODE_NORMAL,
+    sourceSql: '',
+    scheduleCron: '',
+    uniqueKeys: '',
+    syncStrategy: '',
+    enabled: '1',
+    partitionKeys: '',
+    bucketKeys: '',
+    editOpenMode: '1',
+    listDescription: '',
+    extendJson: '',
+  },
 })
 let disabled = ref(false)
+let deriveConfigModalVisible = ref(false)
+let deriveParseLoading = ref(false)
+let deriveSyncLoading = ref(false)
+let deriveParsedFields = ref([])
+let deriveSelectedFieldNames = ref([])
 let aiCheckDrawerVisible = ref(false)
 let aiCreateDraftDrawerVisible = ref(false)
 let aiDesignIssues = ref([])
@@ -491,6 +646,266 @@ watch(() => formModel.value.comments, (val) => {
  * @param item
  * @return {boolean}
  */
+const normalizeDeriveConfig = (model = {}) => {
+  const config = model.deriveConfig || {}
+  model.deriveConfig = {
+    sourceMode: config.sourceMode || SOURCE_MODE_NORMAL,
+    sourceSql: config.sourceSql || '',
+    scheduleCron: config.scheduleCron || '',
+    uniqueKeys: config.uniqueKeys ?? model.blockChainParam2 ?? '',
+    syncStrategy: config.syncStrategy || '',
+    enabled: config.enabled || '1',
+    partitionKeys: config.partitionKeys ?? model.blockChainParam3 ?? '',
+    bucketKeys: config.bucketKeys ?? model.blockChainParam4 ?? '',
+    editOpenMode: config.editOpenMode || model.blockChainParam5 || '1',
+    listDescription: config.listDescription ?? model.blockChainParam6 ?? '',
+    extendJson: config.extendJson || '',
+    id: config.id || '',
+    genTableId: config.genTableId || model.id || '',
+    lastRunTime: config.lastRunTime || '',
+    lastRunStatus: config.lastRunStatus || '',
+    lastRunMessage: config.lastRunMessage || '',
+  }
+  return model.deriveConfig
+}
+
+const syncLegacyParamsFromDeriveConfig = (model = formModel.value) => {
+  const config = normalizeDeriveConfig(model)
+  model.blockChainParam2 = config.uniqueKeys || ''
+  model.blockChainParam3 = config.partitionKeys || ''
+  model.blockChainParam4 = config.bucketKeys || ''
+  model.blockChainParam5 = config.editOpenMode || '1'
+  model.blockChainParam6 = config.listDescription || ''
+  return config
+}
+
+const getExistingDeriveFieldNames = () => {
+  const names = new Set()
+  const collect = (item = {}) => {
+    const name = item.column?.name || item.formItemProps?.name || item.name
+    if (name) {
+      names.add(String(name).toLowerCase())
+    }
+  }
+  displayFormItemArr.value.forEach(collect)
+  hideFormItemArr.value.forEach(collect)
+  fixedArr.forEach(collect)
+  return names
+}
+
+const availableDeriveParsedFields = computed(() => deriveParsedFields.value.filter(field => !field.exists))
+const selectedAvailableDeriveFields = computed(() => {
+  const selected = new Set(deriveSelectedFieldNames.value)
+  return availableDeriveParsedFields.value.filter(field => selected.has(field.name))
+})
+const isAllAvailableDeriveFieldsSelected = computed(() => {
+  return availableDeriveParsedFields.value.length > 0
+      && selectedAvailableDeriveFields.value.length === availableDeriveParsedFields.value.length
+})
+const isPartialDeriveFieldsSelected = computed(() => {
+  return selectedAvailableDeriveFields.value.length > 0
+      && selectedAvailableDeriveFields.value.length < availableDeriveParsedFields.value.length
+})
+
+const refreshParsedDeriveFieldExists = (fields = deriveParsedFields.value) => {
+  const existingNames = getExistingDeriveFieldNames()
+  deriveParsedFields.value = fields.map(field => ({
+    ...field,
+    exists: existingNames.has(String(field.name || '').toLowerCase()),
+  }))
+  deriveSelectedFieldNames.value = deriveParsedFields.value
+      .filter(field => !field.exists)
+      .map(field => field.name)
+}
+
+const parseDeriveSourceSqlFields = () => {
+  const sourceSql = formModel.value.deriveConfig?.sourceSql || ''
+  if (!sourceSql.trim()) {
+    Modal.warning({
+      title: '提示',
+      content: '请先填写来源SQL。',
+    })
+    return
+  }
+  deriveParseLoading.value = true
+  postActionShowLoading('gen/genTable/parseSourceSqlFields', {
+    genTableId: formModel.value.id || table.id,
+    sourceMode: formModel.value.deriveConfig?.sourceMode,
+    sourceSql,
+  }).then(res => {
+    const fields = Array.isArray(res.fields)
+        ? res.fields
+        : (Array.isArray(res.data?.fields) ? res.data.fields : [])
+    refreshParsedDeriveFieldExists(fields)
+    if (fields.length === 0) {
+      Modal.info({
+        title: '解析完成',
+        content: '没有识别到可用字段，请检查来源SQL是否可以正常执行。',
+      })
+    }
+  }).finally(() => {
+    deriveParseLoading.value = false
+  })
+}
+
+const syncDeriveSummaryNow = () => {
+  const genTableId = formModel.value.id || table.id
+  if (!genTableId) {
+    Modal.warning({
+      title: '提示',
+      content: '请先保存表单配置，再执行统计表同步。',
+    })
+    return
+  }
+  Modal.confirm({
+    title: '同步确认',
+    content: '将按已保存的数据来源配置执行来源SQL，并写入当前统计表。继续吗？',
+    onOk: () => {
+      deriveSyncLoading.value = true
+      return postActionShowLoading('gen/genTable/syncDerivedSummary', {
+        genTableId,
+      }).then(res => {
+        const deriveConfig = res?.deriveConfig || res?.data?.deriveConfig
+        if (deriveConfig) {
+          formModel.value.deriveConfig = {
+            ...formModel.value.deriveConfig,
+            ...deriveConfig,
+          }
+          if (table) {
+            table.deriveConfig = {...formModel.value.deriveConfig}
+          }
+        }
+        Modal.success({
+          title: '同步完成',
+          content: res?.msg || '统计表同步完成。',
+        })
+      }).finally(() => {
+        deriveSyncLoading.value = false
+      })
+    },
+  })
+}
+
+const toggleParsedDeriveField = (field, event) => {
+  if (!field || field.exists) {
+    return
+  }
+  const selected = new Set(deriveSelectedFieldNames.value)
+  if (event?.target?.checked) {
+    selected.add(field.name)
+  } else {
+    selected.delete(field.name)
+  }
+  deriveSelectedFieldNames.value = Array.from(selected)
+}
+
+const toggleAllParsedDeriveFields = (event) => {
+  deriveSelectedFieldNames.value = event?.target?.checked
+      ? availableDeriveParsedFields.value.map(field => field.name)
+      : []
+}
+
+const buildDeriveFieldColumn = (field, sortIndex) => {
+  const name = field.name
+  const jdbcType = field.jdbcType || 'varchar(255)'
+  const javaType = field.javaType || 'String'
+  const isDate = javaType === 'java.util.Date' || field.showType === 'dateselect'
+  const isNumber = javaType === 'Integer' || javaType === 'Long' || javaType === 'java.math.BigDecimal'
+  const hidden = !!field.hidden
+  return {
+    showType: isDate ? 'dateselect' : 'input',
+    isOneLine: 0,
+    isNull: 1,
+    comments: field.label || name,
+    comments_EN: name,
+    remarks: '',
+    javaField: name,
+    maxLength: jdbcType.indexOf('varchar') > -1 ? (jdbcType.match(/\d+/g)?.[0] || '255') : '',
+    minLength: '',
+    minValue: '',
+    maxValue: '',
+    friendlyJdbcType: isDate ? '日期' : (isNumber ? '数字' : '文本'),
+    javaType,
+    jdbcType,
+    queryType: field.queryType || (isNumber || isDate ? '=' : 'like'),
+    validateType: isNumber ? (javaType === 'Integer' || javaType === 'Long' ? 'number' : 'digits') : '',
+    isForm: hidden ? '0' : '1',
+    isQuery: hidden ? '0' : (field.dictCandidate || /name|title|status|type|date/i.test(name) ? '1' : '0'),
+    isList: hidden ? '0' : '1',
+    formSort: (sortIndex + 1) * 10,
+    searchSort: field.dictCandidate ? (sortIndex + 1) * 10 : 0,
+    listSort: displayFormItemArr.value.length + sortIndex,
+    isReadonly: '0',
+    defaultValue: '',
+    name,
+    dateType: isDate ? 'yyyy-MM-dd' : '',
+    align: isNumber ? 'right' : 'left',
+    blockChainParam1: '0',
+    blockChainParam2: '0',
+    blockChainParam3: '0',
+  }
+}
+
+const applyParsedDeriveFields = () => {
+  const fields = selectedAvailableDeriveFields.value
+  if (fields.length === 0) {
+    Modal.warning({
+      title: '提示',
+      content: '没有可应用的新字段。',
+    })
+    return
+  }
+  const addMap = {}
+  fields.forEach((field, index) => {
+    const column = buildDeriveFieldColumn(field, index)
+    const dynamicFormItemConfig = transformGenTableColumnToDynamicFormItemConfig(table, column)
+    if (field.hidden) {
+      hideFormItemArr.value.push(dynamicFormItemConfig)
+    } else {
+      displayFormItemArr.value.push(dynamicFormItemConfig)
+      addMap[dynamicFormItemConfig.formItemProps.name] = initColumnListConfig(dynamicFormItemConfig.column)
+    }
+  })
+  updateListSort()
+  applySourceModeListDefaults(formModel.value.deriveConfig?.sourceMode, true)
+  updateMockTableColumns(addMap)
+  refreshParsedDeriveFieldExists()
+  Modal.success({
+    title: '应用成功',
+    content: `已增量添加 ${fields.length} 个字段。请继续检查控件类型、查询条件和字典配置，确认后保存表单配置。`,
+  })
+}
+
+const currentDeriveSourceMode = computed(() => formModel.value.deriveConfig?.sourceMode || SOURCE_MODE_NORMAL)
+const currentDeriveSourceModeText = computed(() => {
+  const option = deriveSourceModeOptionData.find(item => item.value === currentDeriveSourceMode.value)
+  return option?.text || '普通表'
+})
+const currentDeriveSourceModeDesc = computed(() => {
+  if (currentDeriveSourceMode.value === SOURCE_MODE_SYNC_VIEW) {
+    return '数据来自本模块其他表的实时统计、关联或加工结果，表名按已有规则使用 @view 后缀。'
+  }
+  if (currentDeriveSourceMode.value === SOURCE_MODE_ASYNC_SUMMARY) {
+    return '数据由后台任务按调度规则写入统计表，后续可配置执行频率、唯一键和同步策略。'
+  }
+  return '普通表用于人工录入和常规动态表单维护。'
+})
+
+watch(() => formModel.value.deriveConfig?.sourceMode, (mode) => {
+  if (!formModel.value.deriveConfig) {
+    normalizeDeriveConfig(formModel.value)
+  }
+  if (mode === SOURCE_MODE_SYNC_VIEW && formModel.value.name && !String(formModel.value.name).toLowerCase().endsWith('@view')) {
+    formModel.value.name = `${formModel.value.name}@view`
+  }
+  if (mode === SOURCE_MODE_SYNC_VIEW) {
+    applySourceModeListDefaults(mode)
+  }
+  if (mode === SOURCE_MODE_ASYNC_SUMMARY && !formModel.value.deriveConfig.syncStrategy) {
+    formModel.value.deriveConfig.syncStrategy = 'upsert'
+  }
+})
+
 const isRender = (item) => {
   if (item.formItemProps && item.formItemProps.renderPredicate) {
     return calcPredicate(JSON.parse(item.formItemProps.renderPredicate), mockFormModel.value)
@@ -507,6 +922,75 @@ let extendJsConfig = ref({
   list__buttons: formModel.value.tableType === '3' ? treeTableListButtonArr : defaultListButtonArr,
   extendColumns: [],
 })
+
+const viewRowButtonArr = [{
+  value: 'view',
+  text: '查看',
+}]
+
+const cloneButtonArr = (buttons = []) => deepClone(buttons || [])
+const isViewSourceMode = (mode = formModel.value.deriveConfig?.sourceMode) => {
+  return mode === SOURCE_MODE_SYNC_VIEW || String(formModel.value.name || '').toLowerCase().endsWith('@view')
+}
+const getDefaultRowButtonsBySourceMode = (mode = formModel.value.deriveConfig?.sourceMode) => {
+  if (isViewSourceMode(mode)) {
+    return viewRowButtonArr
+  }
+  return formModel.value.tableType === '3' ? treeTableRowButtonArr : defaultRowButtonArr
+}
+const getDefaultListButtonsBySourceMode = (mode = formModel.value.deriveConfig?.sourceMode) => {
+  if (isViewSourceMode(mode)) {
+    return []
+  }
+  return formModel.value.tableType === '3' ? treeTableListButtonArr : defaultListButtonArr
+}
+const buttonValues = (buttons = []) => (buttons || []).map(item => item.value).join(',')
+const isEditableDefaultButtons = (buttons = [], type = 'row') => {
+  const values = buttonValues(buttons)
+  if (type === 'row') {
+    return values === buttonValues(defaultRowButtonArr) || values === buttonValues(treeTableRowButtonArr) || values === ''
+  }
+  return values === buttonValues(defaultListButtonArr) || values === buttonValues(treeTableListButtonArr) || values === ''
+}
+const updateButtonPermissions = (val = formModel.value.name) => {
+  if (!val) {
+    return
+  }
+  extendJsConfig.value.singleTable__rowButtons.forEach((item) => {
+    if (item.value.indexOf('view') === 0) {
+      item.permission = isSubTable.value ? '' : `app:${val}:view`
+    } else if (item.value.indexOf('edit') === 0) {
+      item.permission = isSubTable.value ? '' : `app:${val}:edit`
+    } else if (item.value.indexOf('delete') === 0) {
+      item.permission = isSubTable.value ? '' : `app:${val}:del`
+    } else if (item.value.indexOf('addChild') === 0) {
+      item.permission = isSubTable.value ? '' : `app:${val}:lowerlevel`
+    }
+  })
+  extendJsConfig.value.list__buttons.forEach((item) => {
+    if (item.value.indexOf('add') === 0) {
+      item.permission = isSubTable.value ? '' : `app:${val}:add`
+    } else if (item.value.indexOf('batch-delete') === 0) {
+      item.permission = isSubTable.value ? '' : `app:${val}:del`
+    } else if (item.value.indexOf('import') === 0) {
+      item.permission = isSubTable.value ? '' : `app:${val}:import`
+    } else if (item.value.indexOf('export') === 0) {
+      item.permission = isSubTable.value ? '' : `app:${val}:export`
+    }
+  })
+}
+const applySourceModeListDefaults = (mode = formModel.value.deriveConfig?.sourceMode, force = false) => {
+  if (!isViewSourceMode(mode)) {
+    return
+  }
+  if (force || isEditableDefaultButtons(extendJsConfig.value.singleTable__rowButtons, 'row')) {
+    extendJsConfig.value.singleTable__rowButtons = cloneButtonArr(getDefaultRowButtonsBySourceMode(mode))
+  }
+  if (force || isEditableDefaultButtons(extendJsConfig.value.list__buttons, 'list')) {
+    extendJsConfig.value.list__buttons = cloneButtonArr(getDefaultListButtonsBySourceMode(mode))
+  }
+  updateButtonPermissions()
+}
 
 watch(() => formModel.value.name, (val) => {
   if (val) {
@@ -710,39 +1194,43 @@ let currentFormItem = ref(new DynamicFormItemConfig())
 let currentFormItemFormModel = ref(currentFormItem.value.toJson())
 let instance = getCurrentInstance();
 /**
- * 监听当前点击的动态表单项的配置内容
+ * 监听当前点击的动态表单项的配置内容。
+ * 只就地替换匹配 id 的项，避免整表 [] 重建导致选中态抖动、右侧面板卡顿。
  */
 watch(() => currentFormItemFormModel.value, (value) => {
-  if (value) {
-    let toObject = value.toObject();
-    toObject.column = transformDynamicFormItemConfigToGenTableColumn(toObject)
-    let arr = []
-    displayFormItemArr.value.forEach((item, index) => {
-      if (item.id === toObject.id) {
-        item = toObject
-        item.apply()
-      }
-      arr.push(item)
-    })
-    displayFormItemArr.value = []
-    displayFormItemArr.value = arr
-    let arr2 = []
-    hideFormItemArr.value.forEach((item, index) => {
-      if (item.id === toObject.id) {
-        item = toObject
-        item.apply()
-      }
-      arr2.push(item)
-    })
-    hideFormItemArr.value = []
-    hideFormItemArr.value = arr2
+  if (!value || typeof value.toObject !== 'function') {
+    return
+  }
+  const toObject = value.toObject()
+  toObject.column = transformDynamicFormItemConfigToGenTableColumn(toObject)
+  toObject.apply && toObject.apply()
+
+  const displayIndex = displayFormItemArr.value.findIndex(item => item.id === toObject.id)
+  if (displayIndex >= 0) {
+    displayFormItemArr.value.splice(displayIndex, 1, toObject)
+    // 保持 currentFormItem 指向数组中的最新对象，避免引用脱节
+    if (currentFormItem.value?.id === toObject.id) {
+      currentFormItem.value = toObject
+    }
+    return
   }
 
+  const hideIndex = hideFormItemArr.value.findIndex(item => item.id === toObject.id)
+  if (hideIndex >= 0) {
+    hideFormItemArr.value.splice(hideIndex, 1, toObject)
+    if (currentFormItem.value?.id === toObject.id) {
+      currentFormItem.value = toObject
+    }
+  }
 }, {deep: true})
 
 const changeCurrent = (item) => {
   if (instance.refs.configForm) {
-    instance.refs.configForm.getRef().resetTableRef()
+    try {
+      instance.refs.configForm.getRef()?.resetTableRef?.()
+    } catch (e) {
+      // 配置面板未挂载时忽略
+    }
   }
   nextTick(() => {
     if (item) {
@@ -757,31 +1245,21 @@ const changeCurrent = (item) => {
 }
 
 /**
- * 点击动态表单项
- * @param item
+ * 点击动态表单项。
+ * 切换字段时不再强制 validate 阻塞（校验失败会弹窗且右侧“点了没反应”）。
+ * 未填完的配置仍保留在当前字段上，保存整表时再统一校验。
  */
 const clickDynamicItem = (item) => {
+  if (!item) {
+    return
+  }
+  // 点已选中项：不重复切换，避免无意义重渲染
+  if (currentFormItem.value?.id && item.id === currentFormItem.value.id && !formSetting.value) {
+    return
+  }
   formSetting.value = false
-  if(other.value){
-    changeCurrent(item);
-  }
-  other.value=false;
-  if (currentFormItem.value.type) {
-    if (currentFormItem.value.type === dynamicFormItemType.table) {
-      return
-    }
-    instance.refs.configForm.getRef().validateFields().then((obj) => {
-      changeCurrent(item)
-    }).catch((err) => {
-      console.error('validateFields', err)
-      Modal.warning({
-        title: '提示',
-        content: '请先完善当前表单项配置'
-      })
-    })
-  } else {
-    changeCurrent(item)
-  }
+  other.value = false
+  changeCurrent(item)
 }
 
 let other=ref(false);
@@ -960,6 +1438,9 @@ const loadSuccess = (res) => {
     })
   }
   table = res.data.genTable
+  normalizeDeriveConfig(table)
+  formModel.value.deriveConfig = {...table.deriveConfig}
+  normalizeDeriveConfig(formModel.value)
   loadAiFormalSourceDrafts(table.id)
   //确保pkColumnName有默认值
   if (!table.pkColumnName) {
@@ -968,22 +1449,25 @@ const loadSuccess = (res) => {
   if (!table.blockChainParam5) {
     table.blockChainParam5 = '1'
   }
+  syncLegacyParamsFromDeriveConfig(table)
+  syncLegacyParamsFromDeriveConfig(formModel.value)
   if (table.formProps) {
     formPropsModel.value = JSON.parse(table.formProps)
   }
   if (table.extendJs) {
     let parse = JSON.parse(table.extendJs);
     if ((!parse.singleTable__rowButtons || parse.singleTable__rowButtons.length === 0) && parse.noRowButton !== '1') {
-      parse.singleTable__rowButtons = formModel.value.tableType === '3' ? treeTableRowButtonArr : defaultRowButtonArr
+      parse.singleTable__rowButtons = cloneButtonArr(getDefaultRowButtonsBySourceMode(formModel.value.deriveConfig?.sourceMode))
     }
     if ((!parse.list__buttons || parse.list__buttons.length === 0) && parse.noOptButton !== '1') {
-      parse.list__buttons = formModel.value.tableType === '3' ? treeTableListButtonArr : defaultListButtonArr
+      parse.list__buttons = cloneButtonArr(getDefaultListButtonsBySourceMode(formModel.value.deriveConfig?.sourceMode))
     }
     if (!parse.extendColumns) {
       parse.extendColumns = []
     }
     extendJsConfig.value = parse
   }
+  applySourceModeListDefaults(formModel.value.deriveConfig?.sourceMode)
   fixedArr = res.data.data.filter(item => oneOf(item.javaField, fixedFieldNameArr))
   let _resultData = res.data.data.filter(item => !oneOf(item.javaField, fixedFieldNameArr))
   _resultData.forEach(item => {
@@ -1157,6 +1641,8 @@ let mockSingleTable = computed(() => {
   }
 })
 const getSubmitData = () => {
+  syncLegacyParamsFromDeriveConfig(formModel.value)
+  syncLegacyParamsFromDeriveConfig(table)
   let json = []
   let arr = []
   displayFormItemArr.value.concat(hideFormItemArr.value).forEach((item, index) => {
@@ -1182,6 +1668,12 @@ const getSubmitData = () => {
     extJava: JSON.stringify(arr),
     formProps: JSON.stringify(formPropsModel.value),
     extendJs: JSON.stringify(extendJsConfig.value),
+    deriveConfig: formModel.value.deriveConfig,
+    blockChainParam2: formModel.value.blockChainParam2,
+    blockChainParam3: formModel.value.blockChainParam3,
+    blockChainParam4: formModel.value.blockChainParam4,
+    blockChainParam5: formModel.value.blockChainParam5,
+    blockChainParam6: formModel.value.blockChainParam6,
     pkColumnName: formModel.value.pkColumnName || 'id'
   }
 }
@@ -1658,15 +2150,24 @@ const applyAiDraftStatePatch = (patch, applyContext = {}) => {
   if (!patch || !patch.canApply) {
     Modal.warning({
       title: '暂不能应用',
-      content: '转换预览存在错误，请先处理后再应用。',
+      content: patch?.mode === 'incremental' && (patch?.summary?.addCount || 0) === 0
+        ? '没有可增量补充的字段（同名均已跳过）。'
+        : '转换预览存在错误，请先处理后再应用。',
     })
     return
   }
 
+  const isIncremental = patch.mode === 'incremental' || applyContext.applyMode === 'incremental'
+  const addCount = patch.summary?.addCount ?? (patch.toAdd || []).length
+  const skipCount = patch.summary?.skipCount ?? (patch.skipped || []).length
+  const confirmContent = isIncremental
+    ? `增量补充：将新增 ${addCount} 个字段，跳过 ${skipCount} 个同名字段（保留原配置），不修改隐藏区域与表名/模块。应用前会保存可撤销快照。此操作只改页面内存，确认后仍需点击原保存按钮。`
+    : `即将用草稿全量替换当前动态字段：显示区域 ${patch.displayFormItemArr.length} 个，隐藏区域 ${patch.hideFormItemArr.length} 个。应用前会自动保存一份可撤销快照；也建议先点击“导出DSL”备份当前设计。此操作只修改当前页面内存，不会保存数据库；确认无误后仍需点击原保存按钮。`
+
   Modal.confirm({
-    title: '应用 DSL 草稿到设计器？',
-    content: `即将用草稿替换当前动态字段：显示区域 ${patch.displayFormItemArr.length} 个，隐藏区域 ${patch.hideFormItemArr.length} 个。应用前会自动保存一份可撤销快照；也建议先点击“导出DSL”备份当前设计。此操作只修改当前页面内存，不会保存数据库；确认无误后仍需点击原保存按钮。`,
-    okText: '应用',
+    title: isIncremental ? '增量补充字段到设计器？' : '全量应用 DSL 草稿到设计器？',
+    content: confirmContent,
+    okText: isIncremental ? '增量补充' : '全量应用',
     cancelText: '取消',
     onOk() {
       const result = applyDraftStatePatch({
@@ -1684,7 +2185,11 @@ const applyAiDraftStatePatch = (patch, applyContext = {}) => {
       }
       aiFormalizeContext.value = {
         ...applyContext,
+        applyMode: isIncremental ? 'incremental' : 'replace',
         appliedResult: {
+          mode: isIncremental ? 'incremental' : 'replace',
+          addCount: isIncremental ? addCount : result.appliedFieldCount,
+          skipCount: isIncremental ? skipCount : 0,
           appliedFieldCount: result.appliedFieldCount,
           listFieldCount: result.listFieldCount,
           queryFieldCount: result.queryFieldCount,
@@ -1706,7 +2211,9 @@ const applyAiDraftStatePatch = (patch, applyContext = {}) => {
       console.log('FormDesignAiFormalizeContext', aiFormalizeContext.value)
       Modal.success({
         title: '应用成功',
-        content: `已应用 ${result.appliedFieldCount} 个草稿字段，包含 ${result.listFieldCount} 个列表字段、${result.queryFieldCount} 个查询条件。页面右上角可点击“撤销AI应用”恢复应用前状态；确认后再保存。`,
+        content: isIncremental
+          ? `已增量补充 ${addCount} 个字段（跳过 ${skipCount} 个同名），画布共 ${result.displayAfterCount} 个显示字段。可点“撤销AI应用”恢复；确认后请保存并同步表。`
+          : `已全量应用 ${result.appliedFieldCount} 个草稿字段，包含 ${result.listFieldCount} 个列表字段、${result.queryFieldCount} 个查询条件。页面右上角可点击“撤销AI应用”恢复应用前状态；确认后再保存。`,
       })
     },
   })
@@ -1796,6 +2303,176 @@ const rollbackAiDraftState = () => {
 .design-action-group :deep(.ant-btn) {
   height: 24px;
   padding: 0 8px;
+}
+
+.derive-source-row {
+  margin: 2px 0 10px;
+  padding: 10px 8px;
+  border: 1px solid #edf1f7;
+  border-radius: 8px;
+  background: #fbfcff;
+}
+
+.derive-source-form-item {
+  margin-bottom: 0;
+}
+
+.derive-source-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.derive-source-control :deep(.ant-select),
+.derive-source-control :deep(.u-select) {
+  flex: 1;
+  min-width: 0;
+}
+
+.derive-config-modal {
+  padding: 2px 0 0;
+}
+
+:global(.derive-config-modal-wrap .ant-modal) {
+  top: 24px;
+  padding-bottom: 24px;
+}
+
+:global(.derive-config-modal-wrap .ant-modal-content) {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 48px);
+  overflow: hidden;
+}
+
+:global(.derive-config-modal-wrap .ant-modal-header),
+:global(.derive-config-modal-wrap .ant-modal-footer) {
+  flex: none;
+}
+
+:global(.derive-config-modal-wrap .ant-modal-body) {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.derive-config-tip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+  padding: 12px;
+  border-radius: 8px;
+  background: #f8fafc;
+  color: #64748b;
+  line-height: 22px;
+}
+
+.derive-parse-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: -4px 0 14px 90px;
+}
+
+.derive-parse-actions :deep(.ant-btn) {
+  border-radius: 6px;
+}
+
+.derive-parse-summary {
+  color: #64748b;
+  font-size: 12px;
+}
+
+.derive-field-panel {
+  margin: 0 0 16px 90px;
+  border: 1px solid #edf1f7;
+  border-radius: 8px;
+  background: #fbfcff;
+  overflow: hidden;
+}
+
+.derive-field-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-bottom: 1px solid #edf1f7;
+  color: #64748b;
+  font-size: 12px;
+}
+
+.derive-field-list {
+  max-height: clamp(140px, calc(100vh - 560px), 220px);
+  overflow-y: auto;
+}
+
+.derive-field-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 8px 12px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.derive-field-row:last-child {
+  border-bottom: none;
+}
+
+.derive-field-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.derive-field-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #1f2937;
+  font-size: 13px;
+}
+
+.derive-field-title code {
+  color: #64748b;
+  font-size: 12px;
+  background: #f1f5f9;
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+
+.derive-field-meta {
+  display: flex;
+  gap: 10px;
+  margin-top: 3px;
+  color: #94a3b8;
+  font-size: 12px;
+}
+
+.derive-cron-examples {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 6px;
+  color: #64748b;
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.derive-sync-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 32px;
+  margin-left: 90px;
+}
+
+.derive-sync-status {
+  color: #68758a;
+  font-size: 12px;
+  line-height: 20px;
 }
 
 @media (max-width: 1200px) {

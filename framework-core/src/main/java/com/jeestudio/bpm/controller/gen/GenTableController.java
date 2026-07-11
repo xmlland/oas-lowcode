@@ -9,6 +9,7 @@ import com.jeestudio.bpm.common.view.common.TreeView;
 import com.jeestudio.bpm.service.ai.TransService;
 import com.jeestudio.bpm.service.ai.GenAIService;
 import com.jeestudio.bpm.service.gen.GenRealmService;
+import com.jeestudio.bpm.service.gen.GenTableDeriveSyncService;
 import com.jeestudio.bpm.service.gen.GenTableService;
 import com.jeestudio.bpm.service.system.DictDataService;
 import com.jeestudio.bpm.controller.base.BaseController;
@@ -39,6 +40,9 @@ public class GenTableController extends BaseController {
 
     @Autowired
     private GenTableService genTableService;
+
+    @Autowired
+    private GenTableDeriveSyncService genTableDeriveSyncService;
 
     @Autowired
     private GenRealmService genRealmService;
@@ -185,6 +189,27 @@ public class GenTableController extends BaseController {
     @PostMapping("/saveGenTable")
     public ResultJson saveGenTable(@RequestBody GenTable genTable) {
         ResultJson resultJson = genTableService.saveGenTable(genTable, false);
+        resultJson.setToken(token.get());
+        return resultJson;
+    }
+
+    /**
+     * 解析视图或统计表来源 SQL 的字段元数据。
+     */
+    @Operation(summary = "解析来源SQL字段")
+    @RequiresPermissions("user")
+    @PostMapping("/parseSourceSqlFields")
+    public ResultJson parseSourceSqlFields(@RequestBody JSONObject reqBody) {
+        ResultJson resultJson = genTableService.parseSourceSqlFields(reqBody);
+        resultJson.setToken(token.get());
+        return resultJson;
+    }
+
+    @Operation(summary = "手动同步统计表数据")
+    @RequiresPermissions("user")
+    @PostMapping("/syncDerivedSummary")
+    public ResultJson syncDerivedSummary(@RequestBody JSONObject reqBody) {
+        ResultJson resultJson = genTableDeriveSyncService.syncSummaryNow(reqBody);
         resultJson.setToken(token.get());
         return resultJson;
     }

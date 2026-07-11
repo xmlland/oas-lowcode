@@ -3,6 +3,7 @@ package com.jeestudio.bpm.service.gen;
 import cn.hutool.core.convert.Convert;
 import cn.hutool.core.exceptions.ExceptionUtil;
 import cn.hutool.core.util.StrUtil;
+import com.baomidou.dynamic.datasource.DynamicRoutingDataSource;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
@@ -59,8 +60,13 @@ import org.springframework.transaction.annotation.Transactional;
 
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.io.*;
 import java.math.BigDecimal;
+import java.sql.Types;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -84,6 +90,9 @@ public class GenTableService {
 
     @Autowired
     private GenTableDao genTableDao;
+
+    @Autowired
+    private GenTableDeriveConfigDao genTableDeriveConfigDao;
 
     @Autowired
     private GenTableColumnDao genTableColumnDao;
@@ -112,8 +121,17 @@ public class GenTableService {
     @Autowired
     DatahouseService datahouseService;
 
+    @Autowired
+    private DynamicRoutingDataSource dataSource;
+
     @Resource(name = "taskExecutor")
     private TaskExecutor taskExecutor;
+
+    private static final List<String> SOURCE_SQL_DANGEROUS_KEYWORDS = Arrays.asList(
+            " insert ", " update ", " delete ", " drop ", " alter ", " truncate ",
+            " create ", " grant ", " revoke ", " execute ", " call ", " merge ",
+            " replace ", " comment ", " vacuum ", " analyze "
+    );
 
     /*@Value("${spring.datasource.dbType}")*/
     private String dbType=DbTypeUtil.getDbType();
@@ -128,6 +146,7 @@ public class GenTableService {
         if (genTable == null) {
             genTable = genTableDao.get(formNo);
             if (genTable != null) {
+                attachDeriveConfig(genTable);
                 GenTable theGenTable = new GenTable();
                 theGenTable.setParentTable(genTable.getName());
                 List<GenTable> childList = genTableDao.findList(theGenTable);
@@ -153,6 +172,9 @@ public class GenTableService {
                 cacheUtil.setHashCache(GenUtil.GENTABLE_CACHE, formNo, JsonConvertUtil.objectToJson(genTable));
             }
         }
+        if (genTable != null) {
+            attachDeriveConfig(genTable);
+        }
         return genTable;
     }
 
@@ -164,10 +186,612 @@ public class GenTableService {
      */
     public GenTable get(String id) {
         GenTable genTable = this.genTableDao.get(id);
+        attachDeriveConfig(genTable);
         GenTableColumn genTableColumn = new GenTableColumn();
         genTableColumn.setGenTable(new GenTable(genTable.getId()));
         genTable.setColumnList(this.genTableColumnDao.findList(genTableColumn));
         return genTable;
+    }
+
+    /**
+     * 解析视图或统计表来源 SQL 的返回字段。
+     *
+     * <p>这里只读取 JDBC 元数据，不读取真实业务数据。前端拿到字段草稿后，
+     * 再由用户确认是否增量添加到表单设计器。</p>
+     */
+    public ResultJson parseSourceSqlFields(JSONObject reqBody) {
+        String sourceSql = reqBody == null ? "" : ConvertUtil.getString(reqBody.get("sourceSql"));
+        String normalizedSql = normalizeSourceSqlForMetadata(sourceSql);
+        String metadataSql = buildSourceMetadataSql(normalizedSql);
+        JSONArray fields = new JSONArray();
+        try (Connection conn = dataSource.getConnection();
+             PreparedStatement ps = conn.prepareStatement(metadataSql);
+             ResultSet rs = ps.executeQuery()) {
+            ResultSetMetaData metaData = rs.getMetaData();
+            Set<String> usedNames = new HashSet<>();
+            for (int i = 1; i <= metaData.getColumnCount(); i++) {
+                String columnName = normalizeSourceFieldName(metaData.getColumnLabel(i), metaData.getColumnName(i), i);
+                String uniqueName = buildUniqueSourceFieldName(columnName, usedNames);
+                int jdbcType = metaData.getColumnType(i);
+                JSONObject field = new JSONObject(true);
+                field.put("name", uniqueName);
+                field.put("rawName", columnName);
+                field.put("label", inferSourceFieldLabel(uniqueName));
+                field.put("jdbcTypeCode", jdbcType);
+                field.put("jdbcType", inferJdbcType(metaData, i, jdbcType));
+                field.put("javaType", inferJavaType(jdbcType));
+                field.put("showType", inferShowType(uniqueName, jdbcType));
+                field.put("queryType", inferQueryType(uniqueName, jdbcType));
+                field.put("hidden", isSystemHiddenSourceField(uniqueName));
+                field.put("dictCandidate", isDictionaryCandidate(uniqueName));
+                fields.add(field);
+            }
+            if (fields.isEmpty()) {
+                fields.addAll(parseSimpleSourceSqlFields(normalizedSql));
+            }
+        } catch (Exception e) {
+            logger.error("Parse source sql fields failed: {}", ExceptionUtils.getStackTrace(e));
+            return ResultJson.failed("来源SQL解析失败：" + e.getMessage());
+        }
+        return ResultJson.success("来源SQL解析成功").put("fields", fields);
+    }
+
+    private String normalizeSourceSqlForMetadata(String sourceSql) {
+        String normalized = sourceSql == null ? "" : sourceSql.trim();
+        if (StringUtil.isBlank(normalized)) {
+            throw new BusinessException("来源SQL不能为空");
+        }
+        while (normalized.endsWith(";")) {
+            normalized = normalized.substring(0, normalized.length() - 1).trim();
+        }
+        String lowerSql = normalized.toLowerCase(Locale.ROOT);
+        String checkSql = " " + lowerSql.replaceAll("\\s+", " ") + " ";
+        if (!checkSql.startsWith(" select ") && !checkSql.startsWith(" with ")) {
+            throw new BusinessException("来源SQL只允许使用 select 或 with 查询语句");
+        }
+        if (checkSql.contains(";")) {
+            throw new BusinessException("来源SQL不允许包含多条语句");
+        }
+        for (String keyword : SOURCE_SQL_DANGEROUS_KEYWORDS) {
+            if (checkSql.contains(keyword)) {
+                throw new BusinessException("来源SQL包含不允许的内容：" + keyword.trim());
+            }
+        }
+        return normalized;
+    }
+
+    private String buildSourceMetadataSql(String normalizedSql) {
+        return "SELECT * FROM (" + normalizedSql + ") source_sql_meta WHERE 1 = 0";
+    }
+
+    private JSONArray parseSimpleSourceSqlFields(String normalizedSql) {
+        JSONArray fields = new JSONArray();
+        String selectBody = extractTopLevelSelectBody(normalizedSql);
+        if (StringUtil.isBlank(selectBody)) {
+            return fields;
+        }
+        List<String> expressions = splitTopLevelSelectExpressions(selectBody);
+        Set<String> usedNames = new HashSet<>();
+        int index = 1;
+        for (String expression : expressions) {
+            String fieldName = normalizeSourceFieldName(inferFieldNameFromSelectExpression(expression, index), null, index);
+            String uniqueName = buildUniqueSourceFieldName(fieldName, usedNames);
+            JSONObject field = new JSONObject(true);
+            field.put("name", uniqueName);
+            field.put("rawName", fieldName);
+            field.put("label", inferSourceFieldLabel(uniqueName));
+            field.put("jdbcTypeCode", Types.VARCHAR);
+            field.put("jdbcType", "varchar(255)");
+            field.put("javaType", "String");
+            field.put("showType", inferShowType(uniqueName, Types.VARCHAR));
+            field.put("queryType", inferQueryType(uniqueName, Types.VARCHAR));
+            field.put("hidden", isSystemHiddenSourceField(uniqueName));
+            field.put("dictCandidate", isDictionaryCandidate(uniqueName));
+            fields.add(field);
+            index++;
+        }
+        return fields;
+    }
+
+    private String extractTopLevelSelectBody(String sql) {
+        String lowerSql = sql.toLowerCase(Locale.ROOT);
+        int selectIndex = findTopLevelKeyword(lowerSql, "select", 0);
+        if (selectIndex < 0) {
+            return "";
+        }
+        int fromIndex = findTopLevelKeyword(lowerSql, "from", selectIndex + 6);
+        if (fromIndex < 0 || fromIndex <= selectIndex) {
+            return "";
+        }
+        return sql.substring(selectIndex + 6, fromIndex);
+    }
+
+    private int findTopLevelKeyword(String lowerSql, String keyword, int start) {
+        int depth = 0;
+        boolean inSingleQuote = false;
+        boolean inDoubleQuote = false;
+        for (int i = start; i <= lowerSql.length() - keyword.length(); i++) {
+            char ch = lowerSql.charAt(i);
+            if (ch == '\'' && !inDoubleQuote) {
+                inSingleQuote = !inSingleQuote;
+            } else if (ch == '"' && !inSingleQuote) {
+                inDoubleQuote = !inDoubleQuote;
+            } else if (!inSingleQuote && !inDoubleQuote) {
+                if (ch == '(') {
+                    depth++;
+                } else if (ch == ')' && depth > 0) {
+                    depth--;
+                } else if (depth == 0 && lowerSql.startsWith(keyword, i) && isKeywordBoundary(lowerSql, i, keyword.length())) {
+                    return i;
+                }
+            }
+        }
+        return -1;
+    }
+
+    private boolean isKeywordBoundary(String text, int start, int length) {
+        boolean left = start == 0 || !Character.isLetterOrDigit(text.charAt(start - 1)) && text.charAt(start - 1) != '_';
+        int end = start + length;
+        boolean right = end >= text.length() || !Character.isLetterOrDigit(text.charAt(end)) && text.charAt(end) != '_';
+        return left && right;
+    }
+
+    private List<String> splitTopLevelSelectExpressions(String selectBody) {
+        List<String> expressions = new ArrayList<>();
+        int depth = 0;
+        boolean inSingleQuote = false;
+        boolean inDoubleQuote = false;
+        int start = 0;
+        for (int i = 0; i < selectBody.length(); i++) {
+            char ch = selectBody.charAt(i);
+            if (ch == '\'' && !inDoubleQuote) {
+                inSingleQuote = !inSingleQuote;
+            } else if (ch == '"' && !inSingleQuote) {
+                inDoubleQuote = !inDoubleQuote;
+            } else if (!inSingleQuote && !inDoubleQuote) {
+                if (ch == '(') {
+                    depth++;
+                } else if (ch == ')' && depth > 0) {
+                    depth--;
+                } else if (ch == ',' && depth == 0) {
+                    String expression = selectBody.substring(start, i).trim();
+                    if (StringUtil.isNotBlank(expression)) {
+                        expressions.add(expression);
+                    }
+                    start = i + 1;
+                }
+            }
+        }
+        String expression = selectBody.substring(start).trim();
+        if (StringUtil.isNotBlank(expression)) {
+            expressions.add(expression);
+        }
+        return expressions;
+    }
+
+    private String inferFieldNameFromSelectExpression(String expression, int index) {
+        if (StringUtil.isBlank(expression)) {
+            return "field_" + index;
+        }
+        String trimmed = expression.trim();
+        String alias = extractAliasAfterAs(trimmed);
+        if (StringUtil.isNotBlank(alias)) {
+            return alias;
+        }
+        String simpleName = extractSimpleColumnName(trimmed);
+        if (StringUtil.isNotBlank(simpleName)) {
+            return simpleName;
+        }
+        return "field_" + index;
+    }
+
+    private String extractAliasAfterAs(String expression) {
+        String[] parts = expression.split("(?i)\\s+as\\s+");
+        if (parts.length < 2) {
+            return "";
+        }
+        return parts[parts.length - 1].trim();
+    }
+
+    private String extractSimpleColumnName(String expression) {
+        String cleaned = expression.trim();
+        if (cleaned.matches("(?i).+\\s+[A-Za-z_][A-Za-z0-9_]*$")) {
+            String[] tokens = cleaned.split("\\s+");
+            String possibleAlias = tokens[tokens.length - 1];
+            if (!possibleAlias.contains(".") && !possibleAlias.contains("(") && !possibleAlias.contains(")")) {
+                return possibleAlias;
+            }
+        }
+        if (cleaned.matches("[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*")) {
+            int dotIndex = cleaned.lastIndexOf('.');
+            return dotIndex >= 0 ? cleaned.substring(dotIndex + 1) : cleaned;
+        }
+        if (cleaned.startsWith("\"") && cleaned.endsWith("\"") && cleaned.length() > 1) {
+            return cleaned.substring(1, cleaned.length() - 1);
+        }
+        return "";
+    }
+
+    private String normalizeSourceFieldName(String columnLabel, String columnName, int index) {
+        String name = StringUtil.isNotBlank(columnLabel) ? columnLabel : columnName;
+        if (StringUtil.isBlank(name) || "?column?".equalsIgnoreCase(name)) {
+            name = columnName;
+        }
+        name = name == null ? "" : name.trim();
+        if (name.startsWith("\"") && name.endsWith("\"") && name.length() > 1) {
+            name = name.substring(1, name.length() - 1);
+        }
+        if (StringUtil.isBlank(name) || "?column?".equalsIgnoreCase(name)) {
+            name = "field_" + index;
+        }
+        name = name.replaceAll("[^A-Za-z0-9_\\.]", "_");
+        if (StringUtil.isBlank(name)) {
+            name = "field_" + index;
+        }
+        if (Character.isDigit(name.charAt(0))) {
+            name = "field_" + name;
+        }
+        return name;
+    }
+
+    private String buildUniqueSourceFieldName(String name, Set<String> usedNames) {
+        String baseName = StringUtil.isBlank(name) ? "field" : name;
+        String candidate = baseName;
+        int index = 2;
+        while (usedNames.contains(candidate.toLowerCase(Locale.ROOT))) {
+            candidate = baseName + "_" + index++;
+        }
+        usedNames.add(candidate.toLowerCase(Locale.ROOT));
+        return candidate;
+    }
+
+    private String inferJdbcType(ResultSetMetaData metaData, int index, int jdbcType) throws Exception {
+        String typeName = metaData.getColumnTypeName(index);
+        int precision = metaData.getPrecision(index);
+        int scale = metaData.getScale(index);
+        String lowerTypeName = typeName == null ? "" : typeName.toLowerCase(Locale.ROOT);
+        if (jdbcType == Types.VARCHAR || jdbcType == Types.CHAR || jdbcType == Types.NVARCHAR || jdbcType == Types.NCHAR) {
+            int length = precision > 0 ? precision : 255;
+            return "varchar(" + Math.min(length, 4000) + ")";
+        }
+        if (jdbcType == Types.LONGVARCHAR || jdbcType == Types.LONGNVARCHAR || jdbcType == Types.CLOB || jdbcType == Types.NCLOB) {
+            return "text";
+        }
+        if (jdbcType == Types.INTEGER || jdbcType == Types.SMALLINT || jdbcType == Types.TINYINT) {
+            return "integer";
+        }
+        if (jdbcType == Types.BIGINT) {
+            return "bigint";
+        }
+        if (jdbcType == Types.FLOAT || jdbcType == Types.REAL || jdbcType == Types.DOUBLE) {
+            return "double";
+        }
+        if (jdbcType == Types.NUMERIC || jdbcType == Types.DECIMAL) {
+            int p = precision > 0 ? precision : 18;
+            int s = scale >= 0 ? scale : 4;
+            return "decimal(" + p + "," + s + ")";
+        }
+        if (jdbcType == Types.DATE) {
+            return "date";
+        }
+        if (jdbcType == Types.TIMESTAMP || jdbcType == Types.TIMESTAMP_WITH_TIMEZONE || jdbcType == Types.TIME || jdbcType == Types.TIME_WITH_TIMEZONE) {
+            return "datetime";
+        }
+        if (jdbcType == Types.BOOLEAN || jdbcType == Types.BIT) {
+            return "boolean";
+        }
+        return StringUtil.isNotBlank(lowerTypeName) ? lowerTypeName : "varchar(255)";
+    }
+
+    private String inferJavaType(int jdbcType) {
+        if (jdbcType == Types.INTEGER || jdbcType == Types.SMALLINT || jdbcType == Types.TINYINT) {
+            return "Integer";
+        }
+        if (jdbcType == Types.BIGINT) {
+            return "Long";
+        }
+        if (jdbcType == Types.FLOAT || jdbcType == Types.REAL || jdbcType == Types.DOUBLE
+                || jdbcType == Types.NUMERIC || jdbcType == Types.DECIMAL) {
+            return "java.math.BigDecimal";
+        }
+        if (jdbcType == Types.DATE || jdbcType == Types.TIMESTAMP || jdbcType == Types.TIMESTAMP_WITH_TIMEZONE
+                || jdbcType == Types.TIME || jdbcType == Types.TIME_WITH_TIMEZONE) {
+            return "java.util.Date";
+        }
+        if (jdbcType == Types.BOOLEAN || jdbcType == Types.BIT) {
+            return "Boolean";
+        }
+        return "String";
+    }
+
+    private String inferShowType(String name, int jdbcType) {
+        if (jdbcType == Types.DATE || jdbcType == Types.TIMESTAMP || jdbcType == Types.TIMESTAMP_WITH_TIMEZONE
+                || jdbcType == Types.TIME || jdbcType == Types.TIME_WITH_TIMEZONE) {
+            return "dateselect";
+        }
+        if (jdbcType == Types.NUMERIC || jdbcType == Types.DECIMAL || jdbcType == Types.FLOAT
+                || jdbcType == Types.REAL || jdbcType == Types.DOUBLE) {
+            return "input";
+        }
+        return "input";
+    }
+
+    private String inferQueryType(String name, int jdbcType) {
+        if (jdbcType == Types.VARCHAR || jdbcType == Types.CHAR || jdbcType == Types.NVARCHAR
+                || jdbcType == Types.NCHAR || jdbcType == Types.LONGVARCHAR || jdbcType == Types.LONGNVARCHAR) {
+            return isDictionaryCandidate(name) ? "=" : "like";
+        }
+        return "=";
+    }
+
+    private String inferSourceFieldLabel(String name) {
+        if (StringUtil.isBlank(name)) {
+            return "字段";
+        }
+        Map<String, String> labelMap = new HashMap<>();
+        labelMap.put("id", "ID");
+        labelMap.put("name", "名称");
+        labelMap.put("title", "标题");
+        labelMap.put("status", "状态");
+        labelMap.put("type", "类型");
+        labelMap.put("category", "分类");
+        labelMap.put("amount", "金额");
+        labelMap.put("contract_no", "合同编号");
+        labelMap.put("contract_name", "合同名称");
+        labelMap.put("contract_type", "合同类型");
+        labelMap.put("contract_status", "合同状态");
+        labelMap.put("party_a", "甲方");
+        labelMap.put("party_b", "乙方");
+        labelMap.put("currency", "币种");
+        labelMap.put("sign_date", "签订日期");
+        labelMap.put("start_date", "开始日期");
+        labelMap.put("end_date", "结束日期");
+        labelMap.put("risk_level", "风险等级");
+        labelMap.put("total", "合计");
+        labelMap.put("count", "数量");
+        labelMap.put("create_date", "创建时间");
+        labelMap.put("update_date", "更新时间");
+        labelMap.put("remarks", "备注");
+        String lowerName = name.toLowerCase(Locale.ROOT);
+        if (labelMap.containsKey(lowerName)) {
+            return labelMap.get(lowerName);
+        }
+        String chineseLabel = inferSourceFieldChineseLabel(lowerName);
+        if (StringUtil.isNotBlank(chineseLabel)) {
+            return chineseLabel;
+        }
+        String[] words = lowerName.replace(".", "_").split("_+");
+        StringBuilder label = new StringBuilder();
+        for (String word : words) {
+            if (StringUtil.isBlank(word)) {
+                continue;
+            }
+            label.append(word.substring(0, 1).toUpperCase(Locale.ROOT));
+            if (word.length() > 1) {
+                label.append(word.substring(1));
+            }
+            label.append(" ");
+        }
+        return StringUtil.isBlank(label.toString()) ? name : label.toString().trim();
+    }
+
+    private String inferSourceFieldChineseLabel(String lowerName) {
+        if (StringUtil.isBlank(lowerName)) {
+            return "";
+        }
+        Map<String, String> wordMap = new HashMap<>();
+        wordMap.put("contract", "合同");
+        wordMap.put("customer", "客户");
+        wordMap.put("supplier", "供应商");
+        wordMap.put("vendor", "供应商");
+        wordMap.put("project", "项目");
+        wordMap.put("order", "订单");
+        wordMap.put("invoice", "发票");
+        wordMap.put("payment", "付款");
+        wordMap.put("user", "用户");
+        wordMap.put("dept", "部门");
+        wordMap.put("office", "机构");
+        wordMap.put("party", "方");
+        wordMap.put("no", "编号");
+        wordMap.put("code", "编码");
+        wordMap.put("name", "名称");
+        wordMap.put("title", "标题");
+        wordMap.put("type", "类型");
+        wordMap.put("status", "状态");
+        wordMap.put("category", "分类");
+        wordMap.put("level", "等级");
+        wordMap.put("currency", "币种");
+        wordMap.put("amount", "金额");
+        wordMap.put("price", "价格");
+        wordMap.put("total", "合计");
+        wordMap.put("count", "数量");
+        wordMap.put("date", "日期");
+        wordMap.put("time", "时间");
+        wordMap.put("start", "开始");
+        wordMap.put("end", "结束");
+        wordMap.put("sign", "签订");
+        wordMap.put("create", "创建");
+        wordMap.put("update", "更新");
+        wordMap.put("audit", "审核");
+        wordMap.put("risk", "风险");
+        wordMap.put("remark", "备注");
+        wordMap.put("remarks", "备注");
+        wordMap.put("desc", "描述");
+        wordMap.put("description", "描述");
+        String[] words = lowerName.replace(".", "_").split("_+");
+        StringBuilder label = new StringBuilder();
+        boolean hasChineseWord = false;
+        for (String word : words) {
+            if (StringUtil.isBlank(word)) {
+                continue;
+            }
+            String chinese = wordMap.get(word);
+            if (StringUtil.isBlank(chinese)) {
+                return "";
+            }
+            label.append(chinese);
+            hasChineseWord = true;
+        }
+        return hasChineseWord ? label.toString() : "";
+    }
+
+    private boolean isSystemHiddenSourceField(String name) {
+        if (StringUtil.isBlank(name)) {
+            return false;
+        }
+        String lowerName = name.toLowerCase(Locale.ROOT);
+        return "id".equals(lowerName) || "del_flag".equals(lowerName)
+                || "create_by".equals(lowerName) || "create_date".equals(lowerName)
+                || "update_by".equals(lowerName) || "update_date".equals(lowerName)
+                || "remarks".equals(lowerName) || "owner_code".equals(lowerName);
+    }
+
+    private boolean isDictionaryCandidate(String name) {
+        if (StringUtil.isBlank(name)) {
+            return false;
+        }
+        String lowerName = name.toLowerCase(Locale.ROOT);
+        return lowerName.endsWith("_type") || lowerName.endsWith("_status")
+                || lowerName.endsWith("_category") || lowerName.endsWith("_level")
+                || lowerName.endsWith("_kind") || lowerName.endsWith("_code")
+                || lowerName.contains("status") || lowerName.contains("type")
+                || lowerName.contains("category") || lowerName.contains("currency");
+    }
+
+    private void attachDeriveConfig(GenTable genTable) {
+        if (genTable == null || StringUtil.isBlank(genTable.getId())) {
+            return;
+        }
+        GenTableDeriveConfig deriveConfig = genTableDeriveConfigDao.getByGenTableId(genTable.getId());
+        if (deriveConfig == null) {
+            deriveConfig = buildDeriveConfigFromLegacy(genTable);
+        } else {
+            fillLegacyFromDeriveConfig(genTable, deriveConfig);
+        }
+        genTable.setDeriveConfig(deriveConfig);
+    }
+
+    private void attachDeriveConfig(GenTableView genTableView) {
+        if (genTableView == null || StringUtil.isBlank(genTableView.getId())) {
+            return;
+        }
+        GenTableDeriveConfig deriveConfig = genTableDeriveConfigDao.getByGenTableId(genTableView.getId());
+        if (deriveConfig == null) {
+            deriveConfig = buildDeriveConfigFromLegacy(genTableView);
+        } else {
+            fillLegacyFromDeriveConfig(genTableView, deriveConfig);
+        }
+        genTableView.setDeriveConfig(deriveConfig);
+    }
+
+    private GenTableDeriveConfig buildDeriveConfigFromLegacy(GenTable genTable) {
+        GenTableDeriveConfig deriveConfig = new GenTableDeriveConfig();
+        if (genTable != null) {
+            deriveConfig.setGenTableId(genTable.getId());
+            deriveConfig.setUniqueKeys(genTable.getBlockChainParam2());
+            deriveConfig.setPartitionKeys(genTable.getBlockChainParam3());
+            deriveConfig.setBucketKeys(genTable.getBlockChainParam4());
+            deriveConfig.setEditOpenMode(StringUtil.isNotBlank(genTable.getBlockChainParam5()) ? genTable.getBlockChainParam5() : "1");
+            deriveConfig.setListDescription(genTable.getBlockChainParam6());
+        }
+        deriveConfig.setSourceMode(GenTableDeriveConfig.SOURCE_MODE_NORMAL);
+        deriveConfig.setEnabled(Global.YES);
+        return deriveConfig;
+    }
+
+    private GenTableDeriveConfig buildDeriveConfigFromLegacy(GenTableView genTableView) {
+        GenTableDeriveConfig deriveConfig = new GenTableDeriveConfig();
+        if (genTableView != null) {
+            deriveConfig.setGenTableId(genTableView.getId());
+            deriveConfig.setUniqueKeys(genTableView.getBlockChainParam2());
+            deriveConfig.setPartitionKeys(genTableView.getBlockChainParam3());
+            deriveConfig.setBucketKeys(genTableView.getBlockChainParam4());
+            deriveConfig.setEditOpenMode(StringUtil.isNotBlank(genTableView.getBlockChainParam5()) ? genTableView.getBlockChainParam5() : "1");
+            deriveConfig.setListDescription(genTableView.getBlockChainParam6());
+        }
+        deriveConfig.setSourceMode(GenTableDeriveConfig.SOURCE_MODE_NORMAL);
+        deriveConfig.setEnabled(Global.YES);
+        return deriveConfig;
+    }
+
+    private void fillLegacyFromDeriveConfig(GenTable genTable, GenTableDeriveConfig deriveConfig) {
+        if (genTable == null || deriveConfig == null) {
+            return;
+        }
+        genTable.setBlockChainParam2(deriveConfig.getUniqueKeys());
+        genTable.setBlockChainParam3(deriveConfig.getPartitionKeys());
+        genTable.setBlockChainParam4(deriveConfig.getBucketKeys());
+        genTable.setBlockChainParam5(StringUtil.isNotBlank(deriveConfig.getEditOpenMode()) ? deriveConfig.getEditOpenMode() : "1");
+        genTable.setBlockChainParam6(deriveConfig.getListDescription());
+    }
+
+    private void fillLegacyFromDeriveConfig(GenTableView genTableView, GenTableDeriveConfig deriveConfig) {
+        if (genTableView == null || deriveConfig == null) {
+            return;
+        }
+        genTableView.setBlockChainParam2(deriveConfig.getUniqueKeys());
+        genTableView.setBlockChainParam3(deriveConfig.getPartitionKeys());
+        genTableView.setBlockChainParam4(deriveConfig.getBucketKeys());
+        genTableView.setBlockChainParam5(StringUtil.isNotBlank(deriveConfig.getEditOpenMode()) ? deriveConfig.getEditOpenMode() : "1");
+        genTableView.setBlockChainParam6(deriveConfig.getListDescription());
+    }
+
+    private void normalizeDeriveConfig(GenTable genTable) {
+        if (genTable == null) {
+            return;
+        }
+        GenTableDeriveConfig deriveConfig = genTable.getDeriveConfig();
+        if (deriveConfig == null) {
+            deriveConfig = buildDeriveConfigFromLegacy(genTable);
+            genTable.setDeriveConfig(deriveConfig);
+        }
+        deriveConfig.setGenTableId(genTable.getId());
+        if (StringUtil.isBlank(deriveConfig.getSourceMode())) {
+            deriveConfig.setSourceMode(GenTableDeriveConfig.SOURCE_MODE_NORMAL);
+        }
+        if (StringUtil.isBlank(deriveConfig.getEnabled())) {
+            deriveConfig.setEnabled(Global.YES);
+        }
+        if (StringUtil.isBlank(deriveConfig.getEditOpenMode())) {
+            deriveConfig.setEditOpenMode(StringUtil.isNotBlank(genTable.getBlockChainParam5()) ? genTable.getBlockChainParam5() : "1");
+        }
+        if (deriveConfig.getUniqueKeys() == null) {
+            deriveConfig.setUniqueKeys(genTable.getBlockChainParam2());
+        }
+        if (deriveConfig.getPartitionKeys() == null) {
+            deriveConfig.setPartitionKeys(genTable.getBlockChainParam3());
+        }
+        if (deriveConfig.getBucketKeys() == null) {
+            deriveConfig.setBucketKeys(genTable.getBlockChainParam4());
+        }
+        if (deriveConfig.getListDescription() == null) {
+            deriveConfig.setListDescription(genTable.getBlockChainParam6());
+        }
+        fillLegacyFromDeriveConfig(genTable, deriveConfig);
+    }
+
+    private void saveDeriveConfigIfPresent(GenTable genTable) {
+        if (genTable == null || StringUtil.isBlank(genTable.getId())) {
+            return;
+        }
+        normalizeDeriveConfig(genTable);
+        GenTableDeriveConfig deriveConfig = genTable.getDeriveConfig();
+        if (deriveConfig == null) {
+            return;
+        }
+        GenTableDeriveConfig existing = genTableDeriveConfigDao.getByGenTableId(genTable.getId());
+        if (existing == null) {
+            deriveConfig.setId(null);
+            deriveConfig.preInsert();
+            genTableDeriveConfigDao.insert(deriveConfig);
+        } else {
+            deriveConfig.setId(existing.getId());
+            deriveConfig.setLastRunTime(existing.getLastRunTime());
+            deriveConfig.setLastRunStatus(existing.getLastRunStatus());
+            deriveConfig.setLastRunMessage(existing.getLastRunMessage());
+            deriveConfig.preUpdate();
+            genTableDeriveConfigDao.update(deriveConfig);
+        }
     }
 
     /**
@@ -394,6 +1018,9 @@ public class GenTableService {
      */
     @Transactional(readOnly = false)
     public void delete(GenTable genTable) {
+        if (genTable != null && StringUtil.isNotBlank(genTable.getId())) {
+            genTableDeriveConfigDao.deleteByGenTableId(genTable.getId());
+        }
         this.genTableDao.delete(genTable);
         this.genTableColumnDao.deleteByGenTable(genTable);
         this.genTableDao.delete(genTable);
@@ -1301,6 +1928,7 @@ public class GenTableService {
                 }
             }
             if (genTableView != null) {
+                attachDeriveConfig(genTableView);
                 List<GenTableChildren> genTableChildrenList = genTableDao.getGenTableViewByParentTable(genTableView.getName());
                 for (GenTableChildren genTableChildren : genTableChildrenList) {
                     List<GenTableColumnView> genTableColumnView = genTableColumnDao.getGenTableColumnViewByGenTableId(genTableChildren.getId());
@@ -1409,7 +2037,9 @@ public class GenTableService {
                 gentBeforeSave = this.get(genTable.getId());
             }
             //保存基本信息
+            normalizeDeriveConfig(genTable);
             this.saveDynamic(genTable, array == null ? 0 : array.size());
+            saveDeriveConfigIfPresent(genTable);
             if (!skipSaveJson){
                 this.saveJsons(genTable, StringUtil.isBlank(genTable.getId()));
             }
@@ -1559,7 +2189,7 @@ public class GenTableService {
                     AbstractGenDialect genDialect = GenUtil.getGenDialect(dbType);
 
                     for (GenTableColumn column : genTable.getColumnList()) {
-                        column = this.isNewColumn(column, columnListInDb);
+                        column = this.isNewColumn(column, columnListInDb, genDialect);
                         if (column != null && "isnew".equals(column.getRemarks())) {
                             //新字段
                             String[] addColumnSql = genDialect.getAddColumnSql(genTable.getName(), column);
@@ -1669,7 +2299,7 @@ public class GenTableService {
                 List<GenTableColumn> columnListInDb = genDataBaseDictDao.findTableColumnList(genTable);
                 AbstractGenDialect genDialect = GenUtil.getGenDialect(dbType);
                 for (GenTableColumn column : genTable.getColumnList()) {
-                    column = this.isNewColumn(column, columnListInDb);
+                    column = this.isNewColumn(column, columnListInDb, genDialect);
                     if (column != null && "isnew".equals(column.getRemarks())) {
                         //新字段
                         String[] addColumnSql = genDialect.getAddColumnSql(genTable.getName(), column);
@@ -1703,16 +2333,44 @@ public class GenTableService {
      * @return
      */
     protected GenTableColumn isNewColumn(GenTableColumn column, List<GenTableColumn> columnListInDb) {
+        return isNewColumn(column, columnListInDb, null);
+    }
+
+    /**
+     * 检查字段是否需要创建或修改类型。
+     *
+     * @param genDialect 当前库方言；非空时用语义等价比较 jdbcType（如 datetime≈timestamp）
+     */
+    protected GenTableColumn isNewColumn(GenTableColumn column, List<GenTableColumn> columnListInDb,
+                                         AbstractGenDialect genDialect) {
         column.setRemarks("isnew");
         for (GenTableColumn columnInDb : columnListInDb) {
             if (columnInDb.getName().equalsIgnoreCase(column.getName())) {
                 column.setRemarks("isnotnew");
-                //字段类型无变化
-                if (column.getJdbcType().equalsIgnoreCase(columnInDb.getJdbcType())) column = null;
+                // 字段类型无变化（含方言语义等价：datetime vs timestamp、integer vs int 等）
+                if (isJdbcTypeUnchanged(column.getJdbcType(), columnInDb.getJdbcType(), genDialect)) {
+                    column = null;
+                }
                 break;
             }
         }
         return column;
+    }
+
+    /**
+     * 元数据 jdbcType 与库中 jdbcType 是否视为未变化。
+     */
+    protected boolean isJdbcTypeUnchanged(String metaJdbcType, String dbJdbcType, AbstractGenDialect genDialect) {
+        if (metaJdbcType == null && dbJdbcType == null) {
+            return true;
+        }
+        if (metaJdbcType != null && metaJdbcType.equalsIgnoreCase(dbJdbcType)) {
+            return true;
+        }
+        if (genDialect != null) {
+            return genDialect.isJdbcTypeEquivalent(metaJdbcType, dbJdbcType);
+        }
+        return false;
     }
 
     private boolean buildManayToManyVersionTable(GenTable genTable) {

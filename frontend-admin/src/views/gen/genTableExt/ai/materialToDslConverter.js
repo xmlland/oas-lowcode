@@ -31,7 +31,7 @@ const ZFORM_JAVA_TYPE = 'com.jeestudio.bpm.common.entity.common.Zform'
 const TYPE_CONFIG = {
   text: {showType: 'input', jdbcType: 'varchar', javaType: 'String'},
   textarea: {showType: 'textarea', jdbcType: 'longtext', javaType: 'String'},
-  integer: {showType: 'integer', jdbcType: 'int', javaType: 'Integer'},
+  integer: {showType: 'integer', jdbcType: 'integer', javaType: 'Integer'},
   decimal: {showType: 'decimal', jdbcType: 'decimal', javaType: 'BigDecimal'},
   select: {showType: 'select', jdbcType: 'varchar', javaType: 'String'},
   radio: {showType: 'radiobox', jdbcType: 'varchar', javaType: 'String'},
@@ -380,7 +380,7 @@ const buildDbConfig = (type = '') => {
     return {jdbcType: 'longtext'}
   }
   if (type === 'integer') {
-    return {jdbcType: 'int'}
+    return {jdbcType: 'integer'}
   }
   if (type === 'date') {
     return {jdbcType: 'datetime'}
@@ -525,10 +525,18 @@ const applyListAndQueryRecommendations = (fields = [], style = 'normal') => {
     field.isQuery = isQuery
     field.list.show = isList
     field.list.queryFieldType = queryFieldType
-    field.list.queryFieldProps = isQuery ? {
+    // select 查询必须带 dictType，否则列表查询下拉无数据（DynamicQueryField 优先用 queryFieldProps）
+    const queryFieldProps = isQuery ? {
       placeholder: field.label,
-      formatPatter: field.type === 'date' ? field.dateType : undefined,
+      formatPatter: field.type === 'date' ? (field.dateType || 'yyyy-MM-dd') : undefined,
     } : null
+    if (queryFieldProps && (queryFieldType === 'select' || ['select', 'radio', 'checkbox'].includes(field.type))) {
+      const dictType = field.dictType || field.list?.dict || ''
+      if (dictType) {
+        queryFieldProps.dictType = dictType
+      }
+    }
+    field.list.queryFieldProps = queryFieldProps
     field.query = {
       enabled: isQuery,
       type: queryFieldType,

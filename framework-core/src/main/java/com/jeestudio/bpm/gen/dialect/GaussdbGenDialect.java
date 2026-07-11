@@ -18,8 +18,11 @@ public class GaussdbGenDialect extends PostgreGenDialect {
             return new String[0];
         }else{
             List<String> sqlList = new ArrayList<>();
-            sqlList.add(StrUtil.format("alter table {} alter {} type {}", tableName, genTableColumn.getName(), this.getJdbcType(genTableColumn)));
-            sqlList.add(StrUtil.format("comment on column {}.{} is  '{}'", tableName, genTableColumn.getName(), genTableColumn.getComments()));
+            // 与 PostgreSQL 一致，使用 ALTER COLUMN
+            sqlList.add(StrUtil.format("alter table {} alter column {} type {}",
+                    tableName, genTableColumn.getName(), this.getJdbcType(genTableColumn)));
+            sqlList.add(StrUtil.format("comment on column {}.{} is  '{}'",
+                    tableName, genTableColumn.getName(), genTableColumn.getComments()));
             return sqlList.toArray(new String[0]);
         }
     }

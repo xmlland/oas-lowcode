@@ -1951,6 +1951,7 @@ public class ZformService extends ZformBaseService {
 
     public String getQuerySql(String formNo) {
         GenTable genTable = genTableService.getGenTableWithDefination(formNo);
+        boolean runtimeSourceSqlView = isRuntimeSourceSqlView(genTable);
         String sqlFriendly;
         if (GenTable.MODULE_DATAHOUSE.equals(genTable.getModule())) {
             sqlFriendly = genTable.getExtSql02() + " " + (genTable.getSqlColumnsFriendlyExt() != null ? genTable.getSqlColumnsFriendlyExt() : "");
@@ -1961,15 +1962,18 @@ public class ZformService extends ZformBaseService {
         querySql.append("SELECT ");
         querySql.append(sqlFriendly);
         querySql.append(" FROM  ");
-        querySql.append(this.getTableName(formNo));
+        querySql.append(runtimeSourceSqlView ? getRuntimeTableOrViewName(genTable) : this.getTableName(formNo));
         querySql.append(" a ");
-        querySql.append(StringUtil.getString(genTable.getSqlJoins()) + " " + StringUtil.getString(genTable.getSqlJoinsExt()));
+        if (!runtimeSourceSqlView) {
+            querySql.append(StringUtil.getString(genTable.getSqlJoins()) + " " + StringUtil.getString(genTable.getSqlJoinsExt()));
+        }
 
         return querySql.toString();
     }
 
     private String getQuerySql(String formNo, String genTableFormNo) {
         GenTable genTable = genTableService.getGenTableWithDefination(genTableFormNo);
+        boolean runtimeSourceSqlView = isRuntimeSourceSqlView(genTable);
         String sqlFriendly;
         if (GenTable.MODULE_DATAHOUSE.equals(genTable.getModule())) {
             sqlFriendly = genTable.getExtSql02() + " " + (genTable.getSqlColumnsFriendlyExt() != null ? genTable.getSqlColumnsFriendlyExt() : "");
@@ -1980,9 +1984,11 @@ public class ZformService extends ZformBaseService {
         querySql.append("SELECT ");
         querySql.append(sqlFriendly);
         querySql.append(" FROM  ");
-        querySql.append(formNo);
+        querySql.append(runtimeSourceSqlView ? getRuntimeTableOrViewName(genTable) : formNo);
         querySql.append(" a ");
-        querySql.append(StringUtil.getString(genTable.getSqlJoins()) + " " + StringUtil.getString(genTable.getSqlJoinsExt()));
+        if (!runtimeSourceSqlView) {
+            querySql.append(StringUtil.getString(genTable.getSqlJoins()) + " " + StringUtil.getString(genTable.getSqlJoinsExt()));
+        }
 
         return querySql.toString();
     }
